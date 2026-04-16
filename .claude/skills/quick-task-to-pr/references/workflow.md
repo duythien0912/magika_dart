@@ -14,7 +14,7 @@ All workflow artifacts live under:
 1. Read task and write Behavioral AC via `task-brief-agent`
 2. Write E2E test definitions from ACs via `e2e-definition-writer`
 3. Run AC coverage review loop via `ac-coverage-reviewer` (max 3)
-4. Implement via Claude-native full implementation flow
+4. Implement via a local quick-execution flow inspired by GSD quick mode
 5. Run build + unit test gate deterministically
 6. Run AC-only E2E locally if an E2E runner exists (max 5)
 7. Run E2E enhancer loop via `e2e-enhancer` (max 3)
@@ -30,4 +30,5 @@ All workflow artifacts live under:
 - The task source is only the provided `[TASK-DESC]` and the current local repo state.
 - If no runnable E2E harness exists yet, Steps 2-3 still produce usable definitions/specs, while Steps 6-8 must clearly report that E2E execution is not configured.
 - If the repo is not a git repo or there is no GitHub remote, Steps 9 and 11 must stop with a clear explanation.
-- Step 4 is a future seam for `gsd-planner/executor`, but currently uses Claude-native planning + implementation.
+- Step 4 uses a local quick-execution pattern inspired by GSD quick mode: actionable brief check, direct implementation by default, optional focused delegation, and artifact-driven status/blocker tracking.
+- Step 4 does not introduce `gsd-sdk`, `.planning/quick/`, `STATE.md`, subcommands, or external GSD workflow dependencies.

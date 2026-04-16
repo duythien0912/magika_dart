@@ -20,10 +20,12 @@
 ## `pr-summary.md`
 - What changed
 - Why it changed
+- Step 4 quick-execution status
 - Verification performed
 - Known limitations / skipped steps
 
 ## `review-notes.md`
+- Step 4 blockers / execution notes
 - Review round number
 - New bugs found
 - Design concerns found

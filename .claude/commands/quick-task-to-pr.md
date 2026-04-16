@@ -66,8 +66,10 @@ Use this internal workflow automatically. Do not burden the user with these deta
 - Run up to 3 rounds.
 - Stop if acceptable coverage cannot be reached, unless the task is doc-only and the definitions are already sufficient.
 
-### 4. Implementation
-- If the task needs implementation, do it.
+### 4. Quick execution
+- If the task needs implementation, run a compact local execution flow inspired by GSD quick mode.
+- Use `task-brief.md` as the source of truth, confirm the brief is actionable, then implement directly unless a focused implementation agent would clearly help.
+- Record implementation status, remaining work, and blockers in the canonical output artifacts instead of introducing separate quick-task state directories.
 - If the task is doc-only or planning-only, create the requested artifact and do not overreach.
 
 ### 5. Validation

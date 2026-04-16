@@ -59,10 +59,15 @@ Create the outputs directory if it does not exist.
 - Stop when: Step 2 failed
 - Skip when: never
 
-### Step 4 — Implementation
+### Step 4 — Quick execution
 - Reads: `outputs/task-brief.md`, relevant source files
-- Writes: source code changes in the repo
-- Agent use: optional; implementation can be done directly in the main conversation
+- Writes: source code changes in the repo, plus implementation status in `outputs/pr-summary.md` and blockers/notes in `outputs/review-notes.md`
+- Mode: local-only quick execution inspired by GSD quick mode, using the current repo plus the canonical output artifacts
+- Execution pattern:
+  - first confirm the task brief is actionable enough to implement without a separate planning system
+  - implement directly for simple, well-bounded changes
+  - use a focused implementation agent only when the change is multi-file or clearly benefits from delegation
+  - capture what changed, what remains, and any blockers in the output artifacts so later steps can continue deterministically
 - Stop when: task brief is not actionable
 - Skip when: never
 
@@ -127,7 +132,7 @@ Create the outputs directory if it does not exist.
 - Do not hide blockers; report exactly which step stopped or was skipped and why.
 - Do not merge when any required gate failed.
 - If no runnable E2E harness exists, still produce useful E2E definitions and clearly mark execution steps as skipped.
-- Step 4 is the future seam for `gsd-planner/executor`, but currently uses Claude-native implementation.
+- Step 4 reuses the intent of GSD quick mode locally, but does not require `gsd-sdk`, `.planning/quick/`, `STATE.md`, subcommands, or any external GSD workflow files.
 
 ## Agent naming
 
