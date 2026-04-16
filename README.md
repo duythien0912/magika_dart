@@ -4,21 +4,20 @@
 
 This package ships the real Magika model assets, loads them from bundled package assets, and runs inference through `flutter_onnxruntime`. It supports byte-based and path-based classification APIs, and the repository includes end-to-end Android/iOS integration coverage through the example host app.
 
+---
+
 Magika is a novel AI-powered file type detection tool that relies on the recent advance of deep learning to provide accurate detection. Under the hood, Magika employs a custom, highly optimized model that only weighs about a few MBs, and enables precise file identification within milliseconds, even when running on a single CPU. Magika has been trained and evaluated on a dataset of ~100M samples across 200+ content types (covering both binary and textual file formats), and it achieves an average ~99% accuracy on our test set.
 
 Here is an example of what Magika output looks like:
 
-<p align="center">
-    <img src="https://github.com/google/magika/blob/main/assets/magika-screenshot.png" width="600">
-</p>
-
-
-<div align="left">
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
     <img src="https://github.com/duythien0912/magika_dart/blob/main/images/demo-ios.png?raw=true" width="200">
     <img src="https://github.com/duythien0912/magika_dart/blob/main/images/demo-android.png?raw=true" width="220">
+    <img src="https://github.com/google/magika/blob/main/assets/magika-screenshot.png" width="500">
 </div>
-
+<br/>
 Magika is used at scale to help improve Google users' safety by routing Gmail, Drive, and Safe Browsing files to the proper security and content policy scanners, processing hundreds billions samples on a weekly basis.
+<br/>
 
 ## Features
 
