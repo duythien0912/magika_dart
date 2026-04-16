@@ -1,6 +1,43 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magika_dart/magika_dart.dart';
-import 'package:magika_dart/src/magika_dart_base.dart';
+
+class FakeMagikaBackend implements MagikaBackend {
+  FakeMagikaBackend({
+    this.identifyBytesResult = const MagikaResult(
+      path: '-',
+      status: MagikaStatus.ok,
+      prediction: MagikaPredictions.genericTextFallback,
+    ),
+    this.identifyPathResult = const MagikaResult(
+      path: 'fake-path',
+      status: MagikaStatus.ok,
+      prediction: MagikaPredictions.genericBinaryFallback,
+    ),
+  });
+
+  final MagikaResult identifyBytesResult;
+  final MagikaResult identifyPathResult;
+  PredictionMode? initializedWith;
+  List<int>? lastBytes;
+  String? lastPath;
+
+  @override
+  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
+    initializedWith = predictionMode;
+  }
+
+  @override
+  Future<MagikaResult> identifyBytes(List<int> bytes) async {
+    lastBytes = bytes;
+    return identifyBytesResult;
+  }
+
+  @override
+  Future<MagikaResult> identifyPath(String path) async {
+    lastPath = path;
+    return identifyPathResult;
+  }
+}
 
 void main() {
   test('Magika.create exposes configured prediction mode', () async {
@@ -49,5 +86,30 @@ void main() {
     final result = await magika.identifyPath('sample.txt');
 
     expect(result.path, 'sample.txt');
+  });
+
+  test('Magika.create initializes an injected backend', () async {
+    final backend = FakeMagikaBackend();
+
+    final magika = await Magika.create(
+      predictionMode: PredictionMode.bestGuess,
+      backend: backend,
+    );
+
+    expect(magika.predictionMode, PredictionMode.bestGuess);
+    expect(backend.initializedWith, PredictionMode.bestGuess);
+  });
+
+  test('Magika delegates identify methods through the backend interface', () async {
+    final backend = FakeMagikaBackend();
+    final magika = Magika(backend: backend);
+
+    final bytesResult = await magika.identifyBytes(<int>[1, 2, 3]);
+    final pathResult = await magika.identifyPath('fixture.bin');
+
+    expect(backend.lastBytes, <int>[1, 2, 3]);
+    expect(backend.lastPath, 'fixture.bin');
+    expect(bytesResult, same(backend.identifyBytesResult));
+    expect(pathResult, same(backend.identifyPathResult));
   });
 }

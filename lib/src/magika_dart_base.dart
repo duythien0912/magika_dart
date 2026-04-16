@@ -2,13 +2,23 @@ import 'magika_result.dart';
 import 'prediction_mode.dart';
 import 'status.dart';
 
-class StubMagikaBackend {
+abstract interface class MagikaBackend {
+  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence});
+
+  Future<MagikaResult> identifyBytes(List<int> bytes);
+
+  Future<MagikaResult> identifyPath(String path);
+}
+
+class StubMagikaBackend implements MagikaBackend {
   bool _initialized = false;
 
+  @override
   Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
     _initialized = true;
   }
 
+  @override
   Future<MagikaResult> identifyBytes(List<int> bytes) async {
     if (!_initialized) {
       return const MagikaResult(
@@ -25,6 +35,7 @@ class StubMagikaBackend {
     );
   }
 
+  @override
   Future<MagikaResult> identifyPath(String path) async {
     final result = await identifyBytes(const <int>[]);
     return MagikaResult(

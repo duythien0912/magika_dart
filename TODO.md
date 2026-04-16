@@ -13,7 +13,8 @@
 - [x] Confirm prediction mode naming and semantics against upstream `high-confidence`, `medium-confidence`, and `best-guess` behavior.
 
 ## Phase 3 — Backend architecture
-- [ ] Replace the current stub backend with an explicit backend interface.
+- [ ] Read https://securityresearch.google/magika/introduction/overview
+- [x] Replace the current stub backend with an explicit backend interface.
 - [ ] Decide the first production backend strategy: pure Dart experiment, native/FFI bridge, or model-runtime integration.
 - [ ] Define where model files, thresholds, and label metadata live and how they are loaded.
 - [ ] Decide whether the package should support offline bundled assets, externally downloaded models, or both.
