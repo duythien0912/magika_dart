@@ -1,5 +1,5 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:magika_dart/magika_dart.dart';
-import 'package:test/test.dart';
 
 void main() {
   test('Magika.create returns an instance', () async {

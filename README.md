@@ -1,6 +1,6 @@
 # magika_dart
 
-`magika_dart` is an early-stage Dart port of [Magika](https://github.com/google/magika), Google's AI-powered file type identification project.
+`magika_dart` is an early-stage Flutter package and Dart port of [Magika](https://github.com/google/magika), Google's AI-powered file type identification project.
 
 Upstream Magika combines a compact deep-learning model with file-content sampling to classify 200+ content types with near-constant inference time, even on CPU-only environments. This repository does **not** ship that classifier yet; it currently exposes a Dart-friendly API scaffold that is intended to evolve toward real Magika-compatible behavior.
 
@@ -11,6 +11,7 @@ Today this package is a scaffold, not a production detector:
 - prediction mode configuration is exposed during initialization
 - identification calls currently go through a stub backend
 - results currently report unsupported or unknown content instead of real model-backed predictions
+- the repo now has Flutter package scaffolding so it can evolve toward broader package/plugin integration
 
 If you integrate this package now, treat it as an API and architecture starting point rather than a drop-in replacement for upstream Magika.
 
@@ -25,7 +26,7 @@ According to the Google Magika docs and repository, the upstream project offers:
 - configurable prediction modes including `high-confidence`, `medium-confidence`, and `best-guess`
 - multiple bindings and distribution formats, including CLI, Python, JavaScript/TypeScript, Rust, and Go work
 
-Those upstream characteristics are the target shape for this Dart port, but they are not fully implemented here yet.
+Those upstream characteristics are the target shape for this Dart/Flutter port, but they are not fully implemented here yet.
 
 ## Current package features
 
@@ -37,13 +38,13 @@ Those upstream characteristics are the target shape for this Dart port, but they
 
 ## Getting started
 
-Add the package to your Dart project, then import the library entrypoint:
+Add the package to your project, then import the library entrypoint:
 
 ```dart
 import 'package:magika_dart/magika_dart.dart';
 ```
 
-This package currently targets Dart SDK `^3.11.3`.
+This package currently targets Dart SDK `^3.11.3` and now includes Flutter package scaffolding.
 
 ## Usage
 
@@ -85,7 +86,14 @@ See `TODO.md` for the current roadmap.
 
 ## Development
 
-The repository is a plain Dart package with `test` and `lints` configured in `pubspec.yaml`. If you change the implementation, keep this README aligned with the code that actually ships.
+The repository now uses Flutter package scaffolding with the existing Dart library preserved under `lib/src/`. If you change the implementation, keep this README aligned with the code that actually ships.
+
+## Contributing and support
+
+- Repository: https://github.com/duythien0912/magika_dart
+- Issue tracker: https://github.com/duythien0912/magika_dart/issues
+
+There is not yet a dedicated contribution guide in this repository, so issues and pull requests should currently flow through GitHub.
 
 ## References
 
@@ -95,4 +103,4 @@ The repository is a plain Dart package with `test` and `lints` configured in `pu
 
 ## Additional information
 
-This repository still needs richer package metadata, contribution guidance, and a real backend implementation. Until then, prefer describing it as an early Dart port scaffold rather than a finished Magika implementation.
+This repository still needs richer package metadata, contribution guidance, and a real backend implementation. Until then, prefer describing it as an early Dart/Flutter port scaffold rather than a finished Magika implementation.

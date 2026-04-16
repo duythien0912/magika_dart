@@ -2,9 +2,9 @@
 
 ## Phase 1 — Package and metadata cleanup
 - [x] Replace placeholder README content with project-specific documentation grounded in upstream Magika references.
-- [ ] Add repository metadata to `pubspec.yaml`.
-- [ ] Add contribution and support links once the public repo shape is finalized.
-- [ ] This package becomes a federated Flutter plugin (update using flutter create --template=package <package_name>).
+- [x] Add repository metadata to `pubspec.yaml`.
+- [x] Add contribution and support links that point at the existing GitHub repo and issue tracker.
+- [x] Convert the plain Dart package into Flutter package scaffolding using `flutter create --template=package` while preserving the current library API.
 
 ## Phase 2 — Public API alignment with Magika concepts
 - [ ] Finalize the public `Magika` API shape.
