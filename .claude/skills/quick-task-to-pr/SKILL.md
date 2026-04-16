@@ -29,7 +29,7 @@ Create and use this local output folder:
 Use these files consistently:
 
 - `.claude/skills/quick-task-to-pr/outputs/task-brief.md`
-- `.claude/skills/quick-task-to-pr/outputs/e2e-definitions.md`
+- `.claude/skills/quick-task-to-pr/outputs/flutter-test-definitions.md`
 - `.claude/skills/quick-task-to-pr/outputs/pr-summary.md`
 - `.claude/skills/quick-task-to-pr/outputs/review-notes.md`
 
@@ -41,28 +41,36 @@ Create the outputs directory if it does not exist.
 - Reads: `$ARGUMENTS`, relevant repo files, optional `CLAUDE.md`
 - Writes: `outputs/task-brief.md`
 - Agent: `task-brief-agent`
+- Fallback: if the specialized agent is unavailable, write the task brief directly in the main conversation
 - Stop when: the task is too ambiguous to make binary ACs
 - Skip when: never
 
-### Step 2 — E2E definitions
-- Reads: `outputs/task-brief.md`, existing E2E patterns if any
-- Writes: `outputs/e2e-definitions.md` or runnable E2E spec files if the repo already has a harness
-- Agent: `e2e-definition-writer`
+### Step 2 — Flutter test definitions
+- Reads: `outputs/task-brief.md`, existing Flutter test patterns if any
+- Writes: `outputs/flutter-test-definitions.md` or runnable Flutter test files if the repo already has a harness
+- Agent: `flutter-test-definition-writer`
+- Fallback: if the specialized agent is unavailable, write the Flutter test definitions directly in the main conversation
 - Stop when: Step 1 failed
 - Skip when: never
 
 ### Step 3 — AC coverage review loop
-- Reads: `outputs/task-brief.md`, `outputs/e2e-definitions.md` and/or generated E2E specs
-- Writes: updates to `outputs/e2e-definitions.md` or missing E2E spec files
+- Reads: `outputs/task-brief.md`, `outputs/flutter-test-definitions.md` and/or generated Flutter test files
+- Writes: updates to `outputs/flutter-test-definitions.md` or missing Flutter test files
 - Agent: `ac-coverage-reviewer`
+- Fallback: if the specialized agent is unavailable, perform the AC coverage review directly in the main conversation
 - Loop: max 3 rounds
 - Stop when: Step 2 failed
 - Skip when: never
 
-### Step 4 — Implementation
+### Step 4 — Quick execution
 - Reads: `outputs/task-brief.md`, relevant source files
-- Writes: source code changes in the repo
-- Agent use: optional; implementation can be done directly in the main conversation
+- Writes: source code changes in the repo, plus implementation status in `outputs/pr-summary.md` and blockers/notes in `outputs/review-notes.md`
+- Mode: local-only quick execution inspired by GSD quick mode, using the current repo plus the canonical output artifacts
+- Execution pattern:
+  - first confirm the task brief is actionable enough to implement without a separate planning system
+  - implement directly for simple, well-bounded changes
+  - use a focused implementation agent only when the change is multi-file or clearly benefits from delegation
+  - capture what changed, what remains, and any blockers in the output artifacts so later steps can continue deterministically
 - Stop when: task brief is not actionable
 - Skip when: never
 
@@ -73,29 +81,32 @@ Create the outputs directory if it does not exist.
 - Stop when: no gate commands are detected or the gate fails
 - Skip when: only if the repo truly has no detectable Dart/Flutter project structure, and this is reported explicitly
 
-### Step 6 — AC-only E2E execution
-- Reads: detected E2E commands plus AC definitions/specs
+### Step 6 — AC-only Flutter test execution
+- Reads: detected Flutter test commands plus AC definitions/specs
 - Writes: append status to `outputs/pr-summary.md`
-- Command: `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> ac`
+- Command: `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> ac`
 - Loop: max 5 attempts
-- Stop when: runnable E2E exists and keeps failing after max attempts
-- Skip when: no E2E command is detected; report `E2E execution not configured`
+- Behavior: prefer dedicated `integration_test/` execution when present; otherwise fall back to the repo's runnable `flutter test` path
+- Stop when: runnable Flutter tests exist and keep failing after max attempts
+- Skip when: no Flutter test command is detected at all; report `Flutter test execution not configured`
 
-### Step 7 — E2E enhancement loop
-- Reads: changed source files, E2E specs/definitions
-- Writes: improved E2E specs/definitions and notes in `outputs/review-notes.md`
-- Agent: `e2e-enhancer`
+### Step 7 — Flutter test enhancement loop
+- Reads: changed source files, Flutter test files/definitions
+- Writes: improved Flutter test files/definitions and notes in `outputs/review-notes.md`
+- Agent: `flutter-test-enhancer`
+- Fallback: if the specialized agent is unavailable, perform the coverage-enhancement pass directly in the main conversation
 - Loop: max 3 rounds
-- Stop when: Step 6 is blocked by persistent runnable E2E failures
-- Skip when: E2E execution is not configured and only definitions exist
+- Stop when: Step 6 is blocked by persistent runnable Flutter test failures
+- Skip when: Flutter test execution is not configured and only definitions exist
 
-### Step 8 — All E2E execution
-- Reads: detected E2E commands and full E2E suite
+### Step 8 — Full Flutter test execution
+- Reads: detected Flutter test commands and full Flutter test suite
 - Writes: append status to `outputs/pr-summary.md`
-- Command: `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> all`
+- Command: `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> all`
 - Loop: max 3 attempts
-- Stop when: runnable E2E exists and keeps failing after max attempts
-- Skip when: no E2E command is detected; report `E2E execution not configured`
+- Behavior: prefer dedicated `integration_test/` execution when present; otherwise fall back to the repo's runnable `flutter test` path
+- Stop when: runnable Flutter tests exist and keep failing after max attempts
+- Skip when: no Flutter test command is detected at all; report `Flutter test execution not configured`
 
 ### Step 9 — Create PR
 - Reads: repo git state, `outputs/pr-summary.md`
@@ -108,6 +119,7 @@ Create the outputs directory if it does not exist.
 - Reads: changed files and prior review notes
 - Writes: `outputs/review-notes.md`
 - Agent: `code-review-fixer`
+- Fallback: if the specialized agent is unavailable, perform one direct review/fix pass in the main conversation
 - Loop: max 10 rounds
 - Stop when: critical/high bugs keep appearing and do not converge
 - Skip when: no code changed
@@ -126,16 +138,16 @@ Create the outputs directory if it does not exist.
 - Use only the local repo state plus the provided task description.
 - Do not hide blockers; report exactly which step stopped or was skipped and why.
 - Do not merge when any required gate failed.
-- If no runnable E2E harness exists, still produce useful E2E definitions and clearly mark execution steps as skipped.
-- Step 4 is the future seam for `gsd-planner/executor`, but currently uses Claude-native implementation.
+- If no runnable Flutter test harness exists, still produce useful Flutter test definitions and clearly mark execution steps as skipped.
+- Step 4 reuses the intent of GSD quick mode locally, but does not require `gsd-sdk`, `.planning/quick/`, `STATE.md`, subcommands, or any external GSD workflow files.
 
 ## Agent naming
 
 Use these agent names exactly:
 - `task-brief-agent`
-- `e2e-definition-writer`
+- `flutter-test-definition-writer`
 - `ac-coverage-reviewer`
-- `e2e-enhancer`
+- `flutter-test-enhancer`
 - `code-review-fixer`
 
 ## Final report

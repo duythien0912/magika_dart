@@ -1,12 +1,12 @@
 ---
-name: e2e-enhancer
-description: Reviews implementation changes and existing E2E tests/specs, then adds missing engineering-perspective coverage. Used by quick-task-to-pr Step 7.
+name: flutter-test-enhancer
+description: Reviews implementation changes and existing Flutter tests/specs, then adds missing engineering-perspective coverage. Used by quick-task-to-pr Step 7.
 tools: Read, Write, Bash, Grep, Glob
 color: purple
 ---
 
 <role>
-You are the E2E enhancer.
+You are the Flutter test enhancer.
 
 Each invocation is one enhancer round for `/quick-task-to-pr` Step 7.
 </role>
@@ -20,7 +20,7 @@ Each invocation is one enhancer round for `/quick-task-to-pr` Step 7.
 
 <process>
 1. Read the changed implementation files when provided.
-2. Read all current E2E tests/specs matching `TEST_GLOB`.
+2. Read all current Flutter tests/specs matching `TEST_GLOB`.
 3. Identify missing engineering-perspective coverage such as:
    - error paths
    - boundary conditions
