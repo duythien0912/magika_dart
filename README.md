@@ -1,24 +1,39 @@
 # magika_dart
 
-`magika_dart` is an early-stage Dart package for Magika-inspired content-type identification.
+`magika_dart` is an early-stage Dart port of [Magika](https://github.com/google/magika), Google's AI-powered file type identification project.
 
-The current repository provides the public package surface and a stub backend so applications can start integrating against the API shape before a production classifier backend is wired in.
+Upstream Magika combines a compact deep-learning model with file-content sampling to classify 200+ content types with near-constant inference time, even on CPU-only environments. This repository does **not** ship that classifier yet; it currently exposes a Dart-friendly API scaffold that is intended to evolve toward real Magika-compatible behavior.
 
 ## Current status
 
-This package is still a scaffold:
-- the public `Magika` API is available
+Today this package is a scaffold, not a production detector:
+- the public `Magika` API exists
 - prediction mode configuration is exposed during initialization
-- identification calls currently resolve through a stub backend
-- results currently report unsupported/unknown content rather than real model-backed predictions
+- identification calls currently go through a stub backend
+- results currently report unsupported or unknown content instead of real model-backed predictions
 
-## Features
+If you integrate this package now, treat it as an API and architecture starting point rather than a drop-in replacement for upstream Magika.
 
-- Simple async package entrypoint via `Magika.create()`
+## What upstream Magika provides
+
+According to the Google Magika docs and repository, the upstream project offers:
+- AI-based file type identification across 200+ content types
+- a compact model measured in a few MB
+- inference in milliseconds after model load, even on a single CPU
+- near-constant inference time because it only inspects selected portions of file content
+- per-content-type trust thresholds that can fall back to generic outputs such as "Generic text document" or "Unknown binary data"
+- configurable prediction modes including `high-confidence`, `medium-confidence`, and `best-guess`
+- multiple bindings and distribution formats, including CLI, Python, JavaScript/TypeScript, Rust, and Go work
+
+Those upstream characteristics are the target shape for this Dart port, but they are not fully implemented here yet.
+
+## Current package features
+
+- Async package entrypoint via `Magika.create()`
 - Byte-based identification with `identifyBytes`
 - Path-based identification with `identifyPath`
 - Structured result objects with status and content-type metadata
-- Prediction mode enum ready for future backend integration
+- Prediction mode enum aligned with upstream concepts and ready for backend integration
 
 ## Getting started
 
@@ -57,14 +72,27 @@ Future<void> main() async {
 - `ContentTypeInfo` for content-type metadata
 - `PredictionMode`, `OverwriteReason`, and `MagikaStatus` enums
 
-## Notes for adopters
+## Roadmap themes
 
-At the moment, this package is best treated as an integration scaffold rather than a finished file-type detection library. If you build against it today, expect the API surface to be more stable than the backend behavior.
+The next major steps for this repository are:
+- replace the stub backend with a real classifier backend abstraction
+- decide whether the first working backend should be pure Dart, FFI-backed, or model-runtime based
+- reproduce upstream feature extraction and output mapping behavior
+- align result metadata and fallback behavior with upstream Magika concepts
+- add fixture-based validation against known upstream-style examples
+
+See `TODO.md` for the current roadmap.
 
 ## Development
 
-The repository is a plain Dart package with `test` and `lints` configured in `pubspec.yaml`. If you extend the implementation, keep the README aligned with the currently shipped API and behavior.
+The repository is a plain Dart package with `test` and `lints` configured in `pubspec.yaml`. If you change the implementation, keep this README aligned with the code that actually ships.
+
+## References
+
+- Google Magika docs: https://securityresearch.google/magika/introduction/overview/
+- Upstream repository: https://github.com/google/magika
+- Research paper and citation index: https://securityresearch.google/magika/additional-resources/research-papers-and-citation/
 
 ## Additional information
 
-No repository URL or issue tracker is configured in this repo yet, so project metadata and contribution links will need to be added later alongside the real backend implementation.
+This repository still needs richer package metadata, contribution guidance, and a real backend implementation. Until then, prefer describing it as an early Dart port scaffold rather than a finished Magika implementation.
