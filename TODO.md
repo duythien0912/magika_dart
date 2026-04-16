@@ -13,30 +13,33 @@
 - [x] Confirm prediction mode naming and semantics against upstream `high-confidence`, `medium-confidence`, and `best-guess` behavior.
 
 ## Phase 3 — Backend architecture
-- [ ] Read https://securityresearch.google/magika/introduction/overview
 - [x] Replace the current stub backend with an explicit backend interface.
 - [x] Decide the first production backend strategy: native/FFI bridge.
 - [x] Define where model files, thresholds, and label metadata live and how they are loaded.
 - [x] package should support offline bundled assets.
+- [x] Vendor the real upstream Magika model/config/metadata assets into the package.
+- [x] Implement a real ONNX-backed backend with bundled asset loading and honest runtime failures.
+- [x] Make `Magika.create()` use the real backend by default.
+- [x] Support `identifyPath()` against real filesystem paths.
 
-## Phase 4 — Classifier parity spike
-- [ ] Reproduce upstream feature extraction behavior for a small sample.
-- [ ] Validate label and MIME/output mapping against upstream Magika examples.
-- [ ] Measure whether Dart can preserve Magika's near-constant runtime by sampling only selected byte regions instead of scanning whole files.
-- [ ] Compare Dart-side outputs against known upstream examples for text, binary, empty, and ambiguous files.
+## Phase 4 — Mobile host app and end-to-end verification
+- [x] Create a real Android/iOS example host app for running the package on device.
+- [x] Add real integration fixtures inside `example/integration_test/fixtures/`.
+- [x] Consolidate mobile integration coverage into `example/integration_test/`.
+- [x] Verify the bundled model end-to-end on Android.
+- [x] Verify the bundled model end-to-end on iOS.
+- [x] Expand integration coverage for fixture classification, empty bytes, whitespace-trimmed text, `identifyPath()`, and confidence-mode invariants.
+- [x] Update the example app to let users pick a file and classify it with Magika.
 
-## Phase 5 — Bindings and UX scope
-- [ ] Decide whether this repo should remain a library-first package or also grow a Dart CLI.
-- [ ] Evaluate whether stream-based identification belongs in the first stable API, mirroring upstream bindings.
-- [ ] Decide how recursive directory scanning or batch identification should map into Dart ergonomics.
+## Phase 5 — Docs and release polish
+- [ ] Update README/example docs to describe the real backend, mobile host app, and file-picking example flow.
+- [ ] Review package metadata and release notes for the first production-ready milestone.
+- [ ] Prepare commit/PR for the completed mobile + integration work.
 
-## Phase 6 — Testing and examples
-- [ ] Add richer unit tests for result objects and backend behavior.
-- [ ] Replace the placeholder example with a Magika-oriented usage example that clearly documents current stub behavior.
-- [ ] Add fixture-based tests once real detection logic exists.
-- [ ] Add cross-check tests using a small corpus of files with expected upstream-style labels.
+## Notes
+- Android and iOS integration tests are run from `example/` with `flutter drive`.
+- Real test coverage lives under `example/integration_test/`, not the repo root.
+- The package now uses real production assets and should avoid fake/placeholder behavior.
 
-## Phase 7 — Automation workflow
-- [ ] Make `/quick-task-to-pr` execute artifact creation more directly.
-- [ ] Add sample outputs for task brief, review notes, and PR summary.
-- [ ] Validate PR/review flow on a real feature branch.
+## Next recommended step
+- [ ] Finish Phase 5 docs/release polish.
