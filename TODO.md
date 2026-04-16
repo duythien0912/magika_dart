@@ -31,15 +31,7 @@
 - [x] Expand integration coverage for fixture classification, empty bytes, whitespace-trimmed text, `identifyPath()`, and confidence-mode invariants.
 - [x] Update the example app to let users pick a file and classify it with Magika.
 
-## Phase 5 — Docs and release polish
-- [ ] Update README/example docs to describe the real backend, mobile host app, and file-picking example flow.
-- [ ] Review package metadata and release notes for the first production-ready milestone.
-- [ ] Prepare commit/PR for the completed mobile + integration work.
-
 ## Notes
 - Android and iOS integration tests are run from `example/` with `flutter drive`.
 - Real test coverage lives under `example/integration_test/`, not the repo root.
 - The package now uses real production assets and should avoid fake/placeholder behavior.
-
-## Next recommended step
-- [ ] Finish Phase 5 docs/release polish.
