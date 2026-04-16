@@ -35,6 +35,15 @@ Future<String> _loadBundledStringAsset(String assetKey, String package) async {
   }
 }
 
+class MagikaConfigurationException implements Exception {
+  const MagikaConfigurationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'MagikaConfigurationException: $message';
+}
+
 class _SampleFeatures {
   const _SampleFeatures({
     required this.beginning,
@@ -114,32 +123,111 @@ class RealMagikaBackend implements MagikaBackend {
   @override
   Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
     _predictionMode = predictionMode;
+    final modelConfigJson = await _loadModelConfigJson();
+    final modelConfig = _MagikaModelConfig.fromJson(modelConfigJson);
+    _validateModelConfig(modelConfig);
+    _modelConfig = modelConfig;
+    _contentTypes = await _loadConfiguredContentTypes();
+    _session = await _createConfiguredSession();
+  }
+
+  Future<Map<String, dynamic>> _loadModelConfigJson() async {
     final modelAsset = backendConfig.nativeFfiBridge.modelAsset;
-    final metadataAsset = backendConfig.nativeFfiBridge.labelMetadata;
-    try {
-      _modelConfig = _MagikaModelConfig.fromJson(
-        jsonDecode(
+    switch (modelAsset.source) {
+      case ModelAssetSource.bundled:
+        return jsonDecode(
               await _loadBundledStringAsset(
                 'assets/magika/config.min.json',
                 modelAsset.bundledPackage,
               ),
             )
-            as Map<String, dynamic>,
+            as Map<String, dynamic>;
+      case ModelAssetSource.filesystem:
+        final modelPath = modelAsset.modelPath;
+        if (modelPath == null || modelPath.isEmpty) {
+          throw const MagikaConfigurationException(
+            'ModelAssetSource.filesystem requires a non-empty modelPath.',
+          );
+        }
+        final configPath = '$modelPath.json';
+        final configFile = File(configPath);
+        if (!await configFile.exists()) {
+          throw MagikaConfigurationException(
+            'Model config file not found at $configPath.',
+          );
+        }
+        return jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+      case ModelAssetSource.remote:
+        throw const MagikaConfigurationException(
+          'ModelAssetSource.remote is not implemented yet.',
+        );
+    }
+  }
+
+  Future<Map<String, ContentTypeInfo>> _loadConfiguredContentTypes() async {
+    final metadataConfig = backendConfig.nativeFfiBridge.labelMetadata;
+    final metadataPath = metadataConfig.metadataPath;
+    if (metadataPath != null && metadataPath.isNotEmpty) {
+      final metadataFile = File(metadataPath);
+      if (!await metadataFile.exists()) {
+        throw MagikaConfigurationException(
+          'Metadata file not found at $metadataPath.',
+        );
+      }
+      return _loadContentTypes(
+        jsonDecode(await metadataFile.readAsString()) as Map<String, dynamic>,
       );
-      _contentTypes = _loadContentTypes(
-        jsonDecode(
-              await _loadBundledStringAsset(
-                metadataAsset.bundledAssetKey,
-                metadataAsset.bundledPackage,
-              ),
-            )
-            as Map<String, dynamic>,
+    }
+
+    return _loadContentTypes(
+      jsonDecode(
+            await _loadBundledStringAsset(
+              metadataConfig.bundledAssetKey,
+              metadataConfig.bundledPackage,
+            ),
+          )
+          as Map<String, dynamic>,
+    );
+  }
+
+  Future<OrtSession> _createConfiguredSession() async {
+    final modelAsset = backendConfig.nativeFfiBridge.modelAsset;
+    switch (modelAsset.source) {
+      case ModelAssetSource.bundled:
+        return _runtime.createSessionFromAsset(
+          _bundledOrPackageAssetKey(modelAsset.bundledAssetKey, modelAsset.bundledPackage),
+        );
+      case ModelAssetSource.filesystem:
+        final modelPath = modelAsset.modelPath;
+        if (modelPath == null || modelPath.isEmpty) {
+          throw const MagikaConfigurationException(
+            'ModelAssetSource.filesystem requires a non-empty modelPath.',
+          );
+        }
+        final modelFile = File(modelPath);
+        if (!await modelFile.exists()) {
+          throw MagikaConfigurationException(
+            'Model file not found at $modelPath.',
+          );
+        }
+        return _runtime.createSession(modelPath);
+      case ModelAssetSource.remote:
+        throw const MagikaConfigurationException(
+          'ModelAssetSource.remote is not implemented yet.',
+        );
+    }
+  }
+
+  void _validateModelConfig(_MagikaModelConfig config) {
+    if (config.useInputsAtOffsets) {
+      throw const MagikaConfigurationException(
+        'Model config with use_inputs_at_offsets=true is not supported.',
       );
-      _session = await _runtime.createSessionFromAsset(
-        _bundledOrPackageAssetKey(modelAsset.bundledAssetKey, modelAsset.bundledPackage),
+    }
+    if (config.midSize != 0) {
+      throw MagikaConfigurationException(
+        'Model config with mid_size=${config.midSize} is not supported.',
       );
-    } catch (_) {
-      rethrow;
     }
   }
 
@@ -180,7 +268,14 @@ class RealMagikaBackend implements MagikaBackend {
       final scores = (rawScores.first as List<dynamic>)
           .map((dynamic value) => (value as num).toDouble())
           .toList(growable: false);
-      final prediction = _buildPrediction(scores, _modelConfig!, _contentTypes!, _predictionMode);
+      final prediction = _buildPrediction(
+        scores,
+        _modelConfig!,
+        _contentTypes!,
+        _predictionMode,
+        backendConfig.nativeFfiBridge.thresholds,
+      );
+
       await outputTensor.dispose();
       return MagikaResult(path: '-', status: MagikaStatus.ok, prediction: prediction);
     } catch (_) {
@@ -211,13 +306,6 @@ class RealMagikaBackend implements MagikaBackend {
   }
 
   _SampleFeatures _extractFeatures(Uint8List content, _MagikaModelConfig config) {
-    if (config.useInputsAtOffsets) {
-      throw UnsupportedError('use_inputs_at_offsets is not supported yet');
-    }
-    if (config.midSize != 0) {
-      throw UnsupportedError('mid_size is not supported yet');
-    }
-
     final bytesToRead = content.length < config.blockSize ? content.length : config.blockSize;
     final beginning = _normalizeBeginning(content.sublist(0, bytesToRead), config.beginSize, config.paddingToken);
     final endStart = content.length - bytesToRead;
@@ -252,6 +340,7 @@ class RealMagikaBackend implements MagikaBackend {
     _MagikaModelConfig config,
     Map<String, ContentTypeInfo> contentTypes,
     PredictionMode predictionMode,
+    MagikaThresholdConfig runtimeThresholds,
   ) {
     var maxIndex = 0;
     for (var index = 1; index < scores.length; index += 1) {
@@ -265,10 +354,10 @@ class RealMagikaBackend implements MagikaBackend {
     var overwriteReason = overwrittenLabel == modelLabel ? OverwriteReason.none : OverwriteReason.overwriteMap;
     final score = scores[maxIndex];
 
-    final threshold = config.thresholds[modelLabel] ?? config.mediumConfidenceThreshold;
+    final threshold = config.thresholds[modelLabel] ?? runtimeThresholds.highConfidence;
     final keepModelPrediction = switch (predictionMode) {
       PredictionMode.bestGuess => true,
-      PredictionMode.mediumConfidence => score >= config.mediumConfidenceThreshold,
+      PredictionMode.mediumConfidence => score >= runtimeThresholds.mediumConfidence,
       PredictionMode.highConfidence => score >= threshold,
     };
 

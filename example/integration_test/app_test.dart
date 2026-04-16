@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:example/main.dart' as app;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:magika_dart/magika_dart.dart';
@@ -18,10 +19,31 @@ Future<MagikaResult> _identifyFixture(Magika magika, String assetKey) async {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  app.main();
 
   group('bundled Magika model', () {
+    testWidgets('example app classifies sample text and renders extended fields', (tester) async {
+      app.main();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('magika-idle')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('sample-text-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('magika-result')), findsOneWidget);
+      expect(find.byKey(const Key('magika-input')), findsOneWidget);
+      expect(find.byKey(const Key('magika-direct')), findsOneWidget);
+      expect(find.byKey(const Key('magika-description')), findsOneWidget);
+      expect(find.byKey(const Key('magika-mime-type')), findsOneWidget);
+      expect(find.byKey(const Key('magika-group')), findsOneWidget);
+      expect(find.byKey(const Key('magika-is-text')), findsOneWidget);
+      expect(find.byKey(const Key('magika-did-fallback')), findsOneWidget);
+      expect(find.byKey(const Key('magika-overwrite-reason')), findsOneWidget);
+    });
+
     testWidgets('classifies real bundled fixtures', (tester) async {
+      app.main();
+      await tester.pumpAndSettle();
+
       final magika = await Magika.create(
         predictionMode: PredictionMode.bestGuess,
       );

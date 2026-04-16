@@ -6,6 +6,13 @@ void main() {
   runApp(const MagikaExampleApp());
 }
 
+String _formatError(Object error) {
+  if (error is MagikaConfigurationException) {
+    return error.message;
+  }
+  return error.toString();
+}
+
 class MagikaExampleApp extends StatelessWidget {
   const MagikaExampleApp({super.key});
 
@@ -29,12 +36,16 @@ class MagikaHomePage extends StatefulWidget {
 }
 
 class _MagikaHomePageState extends State<MagikaHomePage> {
+  static const String _sampleText = 'hello from magika example';
+
   Magika? _magika;
   MagikaResult? _result;
   Object? _error;
   bool _initializing = true;
   bool _picking = false;
+  bool _classifyingSample = false;
   String? _selectedPath;
+  String? _sampleInput;
 
   @override
   void initState() {
@@ -67,7 +78,7 @@ class _MagikaHomePageState extends State<MagikaHomePage> {
   }
 
   Future<void> _pickAndIdentifyFile() async {
-    if (_magika == null || _picking) {
+    if (_magika == null || _picking || _classifyingSample) {
       return;
     }
 
@@ -97,6 +108,7 @@ class _MagikaHomePageState extends State<MagikaHomePage> {
       }
       setState(() {
         _selectedPath = path;
+        _sampleInput = null;
         _result = result;
         _picking = false;
       });
@@ -111,6 +123,68 @@ class _MagikaHomePageState extends State<MagikaHomePage> {
     }
   }
 
+  Future<void> _identifySampleText() async {
+    if (_magika == null || _initializing || _picking || _classifyingSample) {
+      return;
+    }
+
+    setState(() {
+      _classifyingSample = true;
+      _error = null;
+    });
+
+    try {
+      final result = await _magika!.identifyString(_sampleText);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _classifyingSample = false;
+        _sampleInput = _sampleText;
+        _selectedPath = null;
+        _result = result;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _classifyingSample = false;
+        _error = error;
+      });
+    }
+  }
+
+  List<Widget> _buildResultDetails(MagikaResult result) {
+    final directLabel = result.prediction.direct?.label ?? 'none';
+    return <Widget>[
+      if (_selectedPath != null) Text('path=$_selectedPath', key: const Key('magika-path')),
+      if (_sampleInput != null) Text('input=$_sampleInput', key: const Key('magika-input')),
+      const SizedBox(height: 8),
+      Text('status=${result.status.name}', key: const Key('magika-status')),
+      const SizedBox(height: 8),
+      Text('model=${result.prediction.model.label}', key: const Key('magika-model')),
+      const SizedBox(height: 8),
+      Text('direct=$directLabel', key: const Key('magika-direct')),
+      const SizedBox(height: 8),
+      Text('output=${result.prediction.output.label}', key: const Key('magika-output')),
+      const SizedBox(height: 8),
+      Text('description=${result.prediction.output.description}', key: const Key('magika-description')),
+      const SizedBox(height: 8),
+      Text('mimeType=${result.prediction.output.mimeType}', key: const Key('magika-mime-type')),
+      const SizedBox(height: 8),
+      Text('group=${result.prediction.output.group}', key: const Key('magika-group')),
+      const SizedBox(height: 8),
+      Text('isText=${result.prediction.output.isText}', key: const Key('magika-is-text')),
+      const SizedBox(height: 8),
+      Text('didFallback=${result.prediction.didFallback}', key: const Key('magika-did-fallback')),
+      const SizedBox(height: 8),
+      Text('overwriteReason=${result.prediction.overwriteReason.name}', key: const Key('magika-overwrite-reason')),
+      const SizedBox(height: 8),
+      Text('score=${result.prediction.score}', key: const Key('magika-score')),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,10 +194,25 @@ class _MagikaHomePageState extends State<MagikaHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FilledButton(
-              key: const Key('pick-file-button'),
-              onPressed: _initializing || _picking || _magika == null ? null : _pickAndIdentifyFile,
-              child: Text(_picking ? 'Picking file...' : 'Pick file'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                FilledButton(
+                  key: const Key('pick-file-button'),
+                  onPressed: _initializing || _picking || _classifyingSample || _magika == null
+                      ? null
+                      : _pickAndIdentifyFile,
+                  child: Text(_picking ? 'Picking file...' : 'Pick file'),
+                ),
+                FilledButton.tonal(
+                  key: const Key('sample-text-button'),
+                  onPressed: _initializing || _picking || _classifyingSample || _magika == null
+                      ? null
+                      : _identifySampleText,
+                  child: Text(_classifyingSample ? 'Classifying sample...' : 'Classify sample text'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             if (_initializing)
@@ -132,29 +221,19 @@ class _MagikaHomePageState extends State<MagikaHomePage> {
               )
             else if (_error != null)
               Text(
-                'Operation failed: $_error',
+                'Operation failed: ${_formatError(_error!)}',
                 key: const Key('magika-error'),
               )
             else if (_result == null)
               const Text(
-                'Pick a file to classify it with Magika.',
+                'Pick a file or classify sample text with Magika.',
                 key: Key('magika-idle'),
               )
             else
               Column(
                 key: const Key('magika-result'),
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_selectedPath != null) Text('path=$_selectedPath', key: const Key('magika-path')),
-                  const SizedBox(height: 8),
-                  Text('status=${_result!.status.name}', key: const Key('magika-status')),
-                  const SizedBox(height: 8),
-                  Text('model=${_result!.prediction.model.label}', key: const Key('magika-model')),
-                  const SizedBox(height: 8),
-                  Text('output=${_result!.prediction.output.label}', key: const Key('magika-output')),
-                  const SizedBox(height: 8),
-                  Text('score=${_result!.prediction.score}', key: const Key('magika-score')),
-                ],
+                children: _buildResultDetails(_result!),
               ),
           ],
         ),

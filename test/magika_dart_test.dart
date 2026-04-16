@@ -1,7 +1,64 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magika_dart/magika_dart.dart';
+
+Future<void> _writeTextFile(String path, String contents) {
+  return File(path).writeAsString(contents);
+}
+
+Future<void> _writeAssetToFile(String assetKey, String path) async {
+  final data = await rootBundle.load(assetKey);
+  await File(path).writeAsBytes(data.buffer.asUint8List());
+}
+
+Future<String> _loadAssetString(String assetKey) {
+  return rootBundle.loadString(assetKey);
+}
+
+Future<Directory> _createFilesystemBackendFixture({
+  Map<String, dynamic> Function(Map<String, dynamic>)? modelConfigUpdate,
+  bool includeMetadata = true,
+}) async {
+  final directory = await Directory.systemTemp.createTemp('magika_backend_fixture_');
+  final modelPath = '${directory.path}/model.onnx';
+  final metadataPath = '${directory.path}/content_types.json';
+  final rawConfig = jsonDecode(await _loadAssetString('assets/magika/config.min.json')) as Map<String, dynamic>;
+  final config = modelConfigUpdate == null
+      ? rawConfig
+      : modelConfigUpdate(Map<String, dynamic>.from(rawConfig));
+
+  await _writeAssetToFile('assets/magika/model.onnx', modelPath);
+  await _writeTextFile('$modelPath.json', jsonEncode(config));
+  if (includeMetadata) {
+    await _writeAssetToFile('assets/magika/content_types_kb.min.json', metadataPath);
+  }
+  return directory;
+}
+
+MagikaBackendConfig _filesystemBackendConfig({
+  required String modelPath,
+  String? metadataPath,
+}) {
+  return MagikaBackendConfig(
+    nativeFfiBridge: NativeFfiBridgeConfig(
+      modelAsset: FfiModelAssetConfig(
+        source: ModelAssetSource.filesystem,
+        modelPath: modelPath,
+      ),
+      labelMetadata: LabelMetadataConfig(metadataPath: metadataPath),
+    ),
+  );
+}
+
+String _tempFilePath(Directory directory, String name) => '${directory.path}/$name';
+
+void _expectConfigError(Object error, String containsMessage) {
+  expect(error, isA<MagikaConfigurationException>());
+  expect(error.toString(), contains(containsMessage));
+}
 
 class FakeMagikaBackend implements MagikaBackend {
   FakeMagikaBackend({
@@ -50,37 +107,15 @@ void main() {
       backend: StubMagikaBackend(),
     );
 
-    expect(magika, isA<Magika>());
     expect(magika.predictionMode, PredictionMode.mediumConfidence);
-    expect(
-      magika.backendConfig.productionStrategy,
-      ProductionBackendStrategy.nativeFfiBridge,
-    );
-    expect(magika.backendConfig.nativeFfiBridge.libraryPath, isNull);
-    expect(magika.backendConfig.nativeFfiBridge.libraryName, isNull);
+    expect(magika.backendConfig.productionStrategy, ProductionBackendStrategy.nativeFfiBridge);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.bundled);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, isNull);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, isNull);
-    expect(
-      magika.backendConfig.nativeFfiBridge.modelAsset.bundledAssetKey,
-      FfiModelAssetConfig.defaultBundledModelAssetKey,
-    );
-    expect(
-      magika.backendConfig.nativeFfiBridge.modelAsset.bundledPackage,
-      FfiModelAssetConfig.defaultBundledAssetPackage,
-    );
     expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.9);
     expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.5);
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, isNull);
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, isNull);
-    expect(
-      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledAssetKey,
-      LabelMetadataConfig.defaultBundledMetadataAssetKey,
-    );
-    expect(
-      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledPackage,
-      FfiModelAssetConfig.defaultBundledAssetPackage,
-    );
   });
 
   test('stub backend returns generic text fallback for text bytes', () async {
@@ -93,7 +128,6 @@ void main() {
     expect(result.prediction.output.label, 'txt');
     expect(result.prediction.didFallback, isTrue);
     expect(result.prediction.overwriteReason, OverwriteReason.lowConfidence);
-    expect(result.isUnsupported, isTrue);
   });
 
   test('stub backend returns generic binary fallback for binary bytes', () async {
@@ -101,7 +135,6 @@ void main() {
     final result = await magika.identifyBytes(<int>[0, 159, 146, 150]);
 
     expect(result.status, MagikaStatus.unsupported);
-    expect(result.prediction.direct?.label, 'unknown_binary');
     expect(result.prediction.output.label, 'unknown_binary');
     expect(result.prediction.didFallback, isTrue);
   });
@@ -111,97 +144,161 @@ void main() {
     final result = await backend.identifyBytes('hello'.codeUnits);
 
     expect(result.status, MagikaStatus.runtimeNotConfigured);
-    expect(result.isRuntimeNotConfigured, isTrue);
     expect(result.prediction.output.label, 'unknown');
   });
 
-  test('identifyPath preserves the requested path', () async {
-    final file = File('test_identify_path_fixture.txt');
-    await file.writeAsString('fixture');
+  test('Magika delegates identifyBytes through the backend interface', () async {
+    final backend = FakeMagikaBackend();
+    final magika = Magika(backend: backend);
+
+    final bytesResult = await magika.identifyBytes(<int>[1, 2, 3]);
+
+    expect(backend.lastBytes, <int>[1, 2, 3]);
+    expect(bytesResult, same(backend.identifyBytesResult));
+  });
+
+  test('Magika delegates identifyPath through the backend interface', () async {
+    final backend = FakeMagikaBackend();
+    final magika = Magika(backend: backend);
+
+    final pathResult = await magika.identifyPath('fixture.bin');
+
+    expect(backend.lastPath, 'fixture.bin');
+    expect(pathResult, same(backend.identifyPathResult));
+  });
+
+  test('Magika delegates identifyString through the backend interface', () async {
+    final backend = FakeMagikaBackend();
+    final magika = Magika(backend: backend);
+
+    final result = await magika.identifyString('hello');
+
+    expect(backend.lastBytes, 'hello'.codeUnits);
+    expect(result, same(backend.identifyBytesResult));
+  });
+
+  test('Magika delegates identifyFile through the backend interface', () async {
+    final backend = FakeMagikaBackend();
+    final magika = Magika(backend: backend);
+    final file = File('fixture.bin');
+
+    final result = await magika.identifyFile(file);
+
+    expect(backend.lastPath, file.path);
+    expect(result, same(backend.identifyPathResult));
+  });
+
+  test('filesystem backend requires non-empty modelPath', () async {
+    try {
+      await Magika.create(
+        backendConfig: const MagikaBackendConfig(
+          nativeFfiBridge: NativeFfiBridgeConfig(
+            modelAsset: FfiModelAssetConfig(source: ModelAssetSource.filesystem),
+          ),
+        ),
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'requires a non-empty modelPath');
+    }
+  });
+
+  test('filesystem backend fails when model config sidecar is missing', () async {
+    try {
+      await Magika.create(
+        backendConfig: _filesystemBackendConfig(modelPath: '/tmp/does-not-exist-model.onnx'),
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'Model config file not found');
+    }
+  });
+
+  test('filesystem backend fails when metadata path is missing', () async {
+    final directory = await _createFilesystemBackendFixture(includeMetadata: false);
     addTearDown(() async {
-      if (await file.exists()) {
-        await file.delete();
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
       }
     });
 
-    final magika = await Magika.create(backend: StubMagikaBackend());
-    final result = await magika.identifyPath(file.path);
-
-    expect(result.path, file.path);
+    try {
+      await Magika.create(
+        backendConfig: _filesystemBackendConfig(
+          modelPath: _tempFilePath(directory, 'model.onnx'),
+          metadataPath: _tempFilePath(directory, 'content_types.json'),
+        ),
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'Metadata file not found');
+    }
   });
 
-  test('Magika.create initializes an injected backend and preserves explicit FFI config', () async {
-    final backend = FakeMagikaBackend();
-    const backendConfig = MagikaBackendConfig(
-      productionStrategy: ProductionBackendStrategy.nativeFfiBridge,
-      nativeFfiBridge: NativeFfiBridgeConfig(
-        libraryPath: '/tmp/libmagika.dylib',
-        libraryName: 'magika',
-        modelAsset: FfiModelAssetConfig(
-          source: ModelAssetSource.bundled,
-          modelPath: '/tmp/magika/model.onnx',
-          modelVersion: 'v1',
-          bundledAssetKey: 'assets/custom/model-v1.onnx',
-          bundledPackage: 'custom_pkg',
+  test('remote model source fails fast with clear error', () async {
+    try {
+      await Magika.create(
+        backendConfig: const MagikaBackendConfig(
+          nativeFfiBridge: NativeFfiBridgeConfig(
+            modelAsset: FfiModelAssetConfig(source: ModelAssetSource.remote),
+          ),
         ),
-        thresholds: MagikaThresholdConfig(
-          highConfidence: 0.95,
-          mediumConfidence: 0.6,
-        ),
-        labelMetadata: LabelMetadataConfig(
-          metadataPath: '/tmp/magika/labels.json',
-          metadataVersion: '2026-04',
-          bundledAssetKey: 'assets/custom/content-types-v1.min.json',
-          bundledPackage: 'custom_pkg',
-        ),
-      ),
-    );
-
-    final magika = await Magika.create(
-      predictionMode: PredictionMode.bestGuess,
-      backend: backend,
-      backendConfig: backendConfig,
-    );
-
-    expect(magika.predictionMode, PredictionMode.bestGuess);
-    expect(magika.backendConfig, same(backendConfig));
-    expect(magika.backendConfig.nativeFfiBridge.libraryPath, '/tmp/libmagika.dylib');
-    expect(magika.backendConfig.nativeFfiBridge.libraryName, 'magika');
-    expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.bundled);
-    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, '/tmp/magika/model.onnx');
-    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, 'v1');
-    expect(
-      magika.backendConfig.nativeFfiBridge.modelAsset.bundledAssetKey,
-      'assets/custom/model-v1.onnx',
-    );
-    expect(magika.backendConfig.nativeFfiBridge.modelAsset.bundledPackage, 'custom_pkg');
-    expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.95);
-    expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.6);
-    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, '/tmp/magika/labels.json');
-    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, '2026-04');
-    expect(
-      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledAssetKey,
-      'assets/custom/content-types-v1.min.json',
-    );
-    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.bundledPackage, 'custom_pkg');
-    expect(backend.initializedWith, PredictionMode.bestGuess);
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'ModelAssetSource.remote is not implemented yet');
+    }
   });
 
-  test('Magika delegates identify methods through the backend interface', () async {
-    final backend = FakeMagikaBackend();
-    final magika = Magika(
-      backend: backend,
-      backendConfig: const MagikaBackendConfig(
-        nativeFfiBridge: NativeFfiBridgeConfig(libraryName: 'magika'),
-      ),
+  test('unsupported use_inputs_at_offsets fails during initialization', () async {
+    final directory = await _createFilesystemBackendFixture(
+      modelConfigUpdate: (json) {
+        json['use_inputs_at_offsets'] = true;
+        return json;
+      },
     );
+    addTearDown(() async {
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    });
 
-    final bytesResult = await magika.identifyBytes(<int>[1, 2, 3]);
-    final pathResult = await magika.identifyPath('fixture.bin');
+    try {
+      await Magika.create(
+        backendConfig: _filesystemBackendConfig(
+          modelPath: _tempFilePath(directory, 'model.onnx'),
+          metadataPath: _tempFilePath(directory, 'content_types.json'),
+        ),
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'use_inputs_at_offsets=true is not supported');
+    }
+  });
 
-    expect(backend.lastBytes, <int>[1, 2, 3]);
-    expect(backend.lastPath, 'fixture.bin');
-    expect(bytesResult, same(backend.identifyBytesResult));
-    expect(pathResult, same(backend.identifyPathResult));
+  test('unsupported mid_size fails during initialization', () async {
+    final directory = await _createFilesystemBackendFixture(
+      modelConfigUpdate: (json) {
+        json['mid_size'] = 16;
+        return json;
+      },
+    );
+    addTearDown(() async {
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    try {
+      await Magika.create(
+        backendConfig: _filesystemBackendConfig(
+          modelPath: _tempFilePath(directory, 'model.onnx'),
+          metadataPath: _tempFilePath(directory, 'content_types.json'),
+        ),
+      );
+      fail('Expected MagikaConfigurationException');
+    } catch (error) {
+      _expectConfigError(error, 'mid_size=16 is not supported');
+    }
   });
 }

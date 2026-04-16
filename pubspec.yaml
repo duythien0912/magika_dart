@@ -1,5 +1,5 @@
 name: magika_dart
-description: Flutter package scaffold for an early Dart port of Google Magika.
+description: Fast and accurate AI powered file content types detection
 version: 0.1.0
 homepage: https://github.com/duythien0912/magika_dart
 repository: https://github.com/duythien0912/magika_dart

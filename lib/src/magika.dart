@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'magika_result.dart';
 import 'prediction_mode.dart';
 import 'magika_dart_base.dart';
@@ -31,7 +33,15 @@ class Magika {
     return _backend.identifyBytes(bytes);
   }
 
+  Future<MagikaResult> identifyString(String text) {
+    return identifyBytes(text.codeUnits);
+  }
+
   Future<MagikaResult> identifyPath(String path) {
     return _backend.identifyPath(path);
+  }
+
+  Future<MagikaResult> identifyFile(File file) {
+    return identifyPath(file.path);
   }
 }
