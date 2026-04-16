@@ -1,38 +1,49 @@
-import 'content_type_info.dart';
 import 'magika_result.dart';
-import 'overwrite_reason.dart';
 import 'prediction_mode.dart';
 import 'status.dart';
 
 class StubMagikaBackend {
-  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {}
+  bool _initialized = false;
+
+  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
+    _initialized = true;
+  }
 
   Future<MagikaResult> identifyBytes(List<int> bytes) async {
+    if (!_initialized) {
+      return const MagikaResult(
+        path: '-',
+        status: MagikaStatus.runtimeNotConfigured,
+        prediction: MagikaPredictions.unsupported,
+      );
+    }
+
     return MagikaResult(
       path: '-',
       status: MagikaStatus.unsupported,
-      prediction: const MagikaPrediction(
-        dl: ContentTypeInfo(
-          label: 'undefined',
-          description: 'Undefined',
-          mimeType: 'application/octet-stream',
-          group: 'unknown',
-          isText: false,
-        ),
-        output: ContentTypeInfo(
-          label: 'unknown',
-          description: 'Unknown binary data',
-          mimeType: 'application/octet-stream',
-          group: 'unknown',
-          isText: false,
-        ),
-        score: 0,
-        overwriteReason: OverwriteReason.none,
-      ),
+      prediction: _predictionForBytes(bytes),
     );
   }
 
   Future<MagikaResult> identifyPath(String path) async {
-    return identifyBytes(const <int>[]);
+    final result = await identifyBytes(const <int>[]);
+    return MagikaResult(
+      path: path,
+      status: result.status,
+      prediction: result.prediction,
+    );
+  }
+
+  MagikaPrediction _predictionForBytes(List<int> bytes) {
+    if (bytes.isEmpty) {
+      return MagikaPredictions.unsupported;
+    }
+
+    final isText = bytes.every((byte) => byte == 9 || byte == 10 || byte == 13 || (byte >= 32 && byte <= 126));
+    if (isText) {
+      return MagikaPredictions.genericTextFallback;
+    }
+
+    return MagikaPredictions.genericBinaryFallback;
   }
 }

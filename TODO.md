@@ -7,10 +7,10 @@
 - [x] Convert the plain Dart package into Flutter package scaffolding using `flutter create --template=package` while preserving the current library API.
 
 ## Phase 2 — Public API alignment with Magika concepts
-- [ ] Finalize the public `Magika` API shape.
-- [ ] Expand `MagikaResult` and metadata models to reflect upstream concepts such as `output`, model/direct labels, score, and fallback behavior.
-- [ ] Define how `unknown`, generic text/binary fallbacks, and unsupported/runtime-not-configured states are surfaced to callers.
-- [ ] Confirm prediction mode naming and semantics against upstream `high-confidence`, `medium-confidence`, and `best-guess` behavior.
+- [x] Finalize the public `Magika` API shape.
+- [x] Expand `MagikaResult` and metadata models to reflect upstream concepts such as `output`, model/direct labels, score, and fallback behavior.
+- [x] Define how `unknown`, generic text/binary fallbacks, and unsupported/runtime-not-configured states are surfaced to callers.
+- [x] Confirm prediction mode naming and semantics against upstream `high-confidence`, `medium-confidence`, and `best-guess` behavior.
 
 ## Phase 3 — Backend architecture
 - [ ] Replace the current stub backend with an explicit backend interface.
