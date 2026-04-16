@@ -1,160 +1,132 @@
 ---
-description: Turn a freeform task description into local artifacts, implementation, verification, PR, review loop, and merge when the repo environment supports it.
+description: Execute a local task from brief to validation with the best available workflow for this repo.
 argument-hint: <task-description>
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Agent]
 ---
 
 # quick-task-to-pr
 
-You are the project-local orchestrator for `/quick-task-to-pr [TASK-DESC]`.
+The user only needs to do this:
 
-The user invoked this command with:
+`/quick-task-to-pr [TASK-DESC]`
 
-`$ARGUMENTS`
+Your job is to take that task description and do the best end-to-end local workflow automatically.
+
+## Core behavior
+
+When invoked:
+
+1. Understand the task.
+2. Create/update local workflow artifacts.
+3. Generate a task brief and acceptance criteria.
+4. Generate E2E definitions if useful.
+5. Implement the task when implementation is needed.
+6. Run validation commands when available.
+7. Review/fix when relevant.
+8. Create PR / merge only when the task and environment call for it.
+9. Return a short, useful summary of what happened.
+
+The user should not need to know about your internal steps, files, or agent structure unless something fails.
 
 ## Inputs
 
 - Task description: `$ARGUMENTS`
 - Repo root: current working directory
 
-If `$ARGUMENTS` is empty, stop immediately and ask the user for a task description.
+If `$ARGUMENTS` is empty, stop immediately and ask for the task description.
 
-## Output artifacts
+## Automatic setup
 
-Create and use this local output folder:
+At the start of every run:
 
-- `.claude/skills/quick-task-to-pr/outputs/`
+1. Run `.claude/skills/quick-task-to-pr/scripts/bootstrap-outputs.sh <repo-root>`.
+2. Use these canonical artifact files for the run:
+   - `.claude/skills/quick-task-to-pr/outputs/task-brief.md`
+   - `.claude/skills/quick-task-to-pr/outputs/e2e-definitions.md`
+   - `.claude/skills/quick-task-to-pr/outputs/pr-summary.md`
+   - `.claude/skills/quick-task-to-pr/outputs/review-notes.md`
+3. Overwrite stale artifact content from earlier runs so the files reflect the current task.
 
-Use these files consistently:
+## Hidden internal workflow
 
-- `.claude/skills/quick-task-to-pr/outputs/task-brief.md`
-- `.claude/skills/quick-task-to-pr/outputs/e2e-definitions.md`
-- `.claude/skills/quick-task-to-pr/outputs/pr-summary.md`
-- `.claude/skills/quick-task-to-pr/outputs/review-notes.md`
+Use this internal workflow automatically. Do not burden the user with these details unless needed.
 
-Create the outputs directory if it does not exist.
+### 1. Task brief
+- Spawn `task-brief-agent`.
+- Write the result to `task-brief.md`.
+- If the task is too ambiguous to make binary ACs, stop and ask the user.
 
-## Immediate setup actions
+### 2. E2E definitions
+- Spawn `e2e-definition-writer`.
+- Write the result to `e2e-definitions.md` when no runnable harness exists.
+- If the repo has a runnable E2E harness, allow real test/spec files instead.
 
-Before starting the workflow:
+### 3. AC coverage review
+- Spawn `ac-coverage-reviewer`.
+- Run up to 3 rounds.
+- Stop if acceptable coverage cannot be reached, unless the task is doc-only and the definitions are already sufficient.
 
-1. Create `.claude/skills/quick-task-to-pr/outputs/` if missing.
-2. Create or overwrite these artifacts as the workflow progresses:
-   - `task-brief.md`
-   - `e2e-definitions.md`
-   - `pr-summary.md`
-   - `review-notes.md`
-3. For small documentation or planning tasks, you may complete the task after Steps 1-5 when that fully satisfies the request. Do not force PR/merge behavior for a simple local planning artifact.
+### 4. Implementation
+- If the task needs implementation, do it.
+- If the task is doc-only or planning-only, create the requested artifact and do not overreach.
 
-## Workflow
+### 5. Validation
+- Run `.claude/skills/quick-task-to-pr/scripts/run-gate.sh` when commands are detectable.
+- Stop before PR creation if validation fails.
 
-### Step 1 — Task brief
-- Reads: `$ARGUMENTS`, relevant repo files, optional `CLAUDE.md`
-- Writes: `outputs/task-brief.md`
-- Agent: `task-brief-agent`
-- Stop when: the task is too ambiguous to make binary ACs
-- Skip when: never
+### 6. E2E execution
+- Run `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> ac` and `all` only when E2E is actually configured.
+- Otherwise mark E2E as skipped and explain briefly.
 
-### Step 2 — E2E definitions
-- Reads: `outputs/task-brief.md`, existing E2E patterns if any
-- Writes: `outputs/e2e-definitions.md` or runnable E2E spec files if the repo already has a harness
-- Agent: `e2e-definition-writer`
-- Stop when: Step 1 failed
-- Skip when: never
+### 7. E2E enhancement
+- Spawn `e2e-enhancer` only when it is useful.
+- Up to 3 rounds.
 
-### Step 3 — AC coverage review loop
-- Reads: `outputs/task-brief.md`, `outputs/e2e-definitions.md` and/or generated E2E specs
-- Writes: updates to `outputs/e2e-definitions.md` or missing E2E spec files
-- Agent: `ac-coverage-reviewer`
-- Loop: max 3 rounds
-- Stop when: Step 2 failed
-- Skip when: never
+### 8. PR creation
+- Create a PR only when:
+  - the task resulted in meaningful code changes, and
+  - the repo/git/GitHub environment supports it, and
+  - the user’s request implies PR behavior.
+- Skip PR creation for simple local-only planning/doc tasks.
 
-### Step 4 — Implementation
-- Reads: `outputs/task-brief.md`, relevant source files
-- Writes: source code changes in the repo, or the requested documentation/planning artifact for doc-only tasks
-- Agent use: optional; implementation can be done directly in the main conversation
-- Stop when: task brief is not actionable
-- Skip when: never
+### 9. Code review
+- Spawn `code-review-fixer` only when source changes were made.
+- Up to 10 rounds.
 
-### Step 5 — Build + unit test gate
-- Reads: repo files and detected commands
-- Writes: no artifact required, but summarize results in `outputs/pr-summary.md`
-- Command: `.claude/skills/quick-task-to-pr/scripts/run-gate.sh`
-- Stop when: no gate commands are detected or the gate fails
-- Skip when: only if the repo truly has no detectable Dart/Flutter project structure, and this is reported explicitly
+### 10. Merge
+- Merge only when:
+  - a PR exists,
+  - validation passed,
+  - and the user’s request/environment support merge.
 
-### Step 6 — AC-only E2E execution
-- Reads: detected E2E commands plus AC definitions/specs
-- Writes: append status to `outputs/pr-summary.md`
-- Command: `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> ac`
-- Loop: max 5 attempts
-- Stop when: runnable E2E exists and keeps failing after max attempts
-- Skip when: no E2E command is detected; report `E2E execution not configured`
-
-### Step 7 — E2E enhancement loop
-- Reads: changed source files, E2E specs/definitions
-- Writes: improved E2E specs/definitions and notes in `outputs/review-notes.md`
-- Agent: `e2e-enhancer`
-- Loop: max 3 rounds
-- Stop when: Step 6 is blocked by persistent runnable E2E failures
-- Skip when: E2E execution is not configured and only definitions exist
-
-### Step 8 — All E2E execution
-- Reads: detected E2E commands and full E2E suite
-- Writes: append status to `outputs/pr-summary.md`
-- Command: `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> all`
-- Loop: max 3 attempts
-- Stop when: runnable E2E exists and keeps failing after max attempts
-- Skip when: no E2E command is detected; report `E2E execution not configured`
-
-### Step 9 — Create PR
-- Reads: repo git state, `outputs/pr-summary.md`
-- Writes: PR on GitHub when supported
-- Command path: `gh pr create`
-- Stop when: repo is not git, branch is not ready, or GitHub remote is unavailable
-- Skip when: the task is fully satisfied as a local artifact change and the user did not ask to create a PR, or when the environment does not support PR creation
-
-### Step 10 — Code review loop
-- Reads: changed files and prior review notes
-- Writes: `outputs/review-notes.md`
-- Agent: `code-review-fixer`
-- Loop: max 10 rounds
-- Stop when: critical/high bugs keep appearing and do not converge
-- Skip when: no code changed
-
-### Step 11 — Merge PR
-- Reads: PR status and prior gate results
-- Writes: merged PR on GitHub when supported
-- Command path: `gh pr merge`
-- Stop when: any required gate failed or no PR exists
-- Skip when: no PR was created, the user did not ask for merge, or the environment does not support merge
-
-## Hard rules
+## Decision rules
 
 - No Jira.
 - No worktrees.
 - Use only the local repo state plus the provided task description.
-- Do not hide blockers; report exactly which step stopped or was skipped and why.
-- Do not merge when any required gate failed.
-- If no runnable E2E harness exists, still produce useful E2E definitions and clearly mark execution steps as skipped.
-- Step 4 is the future seam for `gsd-planner/executor`, but currently uses Claude-native implementation.
+- Prefer doing the right amount of work for the task:
+  - small task → finish simply
+  - real feature task → run the fuller workflow
+- Do not force PR/merge for a task that is fully satisfied locally.
+- Do not hide blockers. If something stops the workflow, say exactly what and why.
+- If no runnable E2E harness exists, still produce useful E2E definitions and continue where reasonable.
 
-## Agent naming
+## Agent map
 
-Use these agent names exactly:
+Use these exact agent names internally:
 - `task-brief-agent`
 - `e2e-definition-writer`
 - `ac-coverage-reviewer`
 - `e2e-enhancer`
 - `code-review-fixer`
 
-## Final report
+## What to tell the user at the end
 
-At the end, report:
-- completed steps
-- stopped/skipped steps with reasons
-- files created/updated
-- build/test results
-- PR status
-- merge status
+Keep the final response simple and practical:
+- what you completed
+- what files changed
+- validation result
+- what was skipped and why
+- PR/merge status if relevant
+
+Do not dump the full internal workflow unless the user asks.
