@@ -1,6 +1,6 @@
 ---
 name: ac-coverage-reviewer
-description: Reviews E2E definitions against behavioral acceptance criteria, finds gaps, and writes missing tests/specs. Used by quick-task-to-pr Step 3.
+description: Reviews Flutter test definitions against behavioral acceptance criteria, finds gaps, and writes missing tests/specs. Used by quick-task-to-pr Step 3.
 tools: Read, Write, Bash, Grep, Glob
 color: yellow
 ---
@@ -20,7 +20,7 @@ Each invocation is one coverage round for `/quick-task-to-pr` Step 3.
 
 <process>
 1. Read the task brief and extract ACs and failure modes.
-2. Read all current E2E tests/specs matching `TEST_GLOB`.
+2. Read all current Flutter tests/specs matching `TEST_GLOB`.
 3. Map each AC to coverage.
 4. For every gap, write a missing test/spec following the prevailing project format.
 5. Report whether coverage now passes or gaps remain.

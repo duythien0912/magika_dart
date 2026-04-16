@@ -13,10 +13,10 @@ eval "$($DETECT_SCRIPT "$REPO_ROOT")"
 
 case "$MODE" in
   ac)
-    CMD="$E2E_AC_CMD"
+    CMD="$FLUTTER_TEST_AC_CMD"
     ;;
   all)
-    CMD="$E2E_ALL_CMD"
+    CMD="$FLUTTER_TEST_ALL_CMD"
     ;;
   *)
     echo "Unknown mode: $MODE" >&2
@@ -25,7 +25,7 @@ case "$MODE" in
 esac
 
 if [[ -z "$CMD" ]]; then
-  echo "NO_E2E_COMMAND_DETECTED"
+  echo "NO_FLUTTER_TEST_COMMAND_DETECTED"
   exit 3
 fi
 

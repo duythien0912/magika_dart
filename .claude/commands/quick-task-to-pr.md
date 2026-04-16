@@ -19,7 +19,7 @@ When invoked:
 1. Understand the task.
 2. Create/update local workflow artifacts.
 3. Generate a task brief and acceptance criteria.
-4. Generate E2E definitions if useful.
+4. Generate Flutter test definitions if useful.
 5. Implement the task when implementation is needed.
 6. Run validation commands when available.
 7. Review/fix when relevant.
@@ -42,7 +42,7 @@ At the start of every run:
 1. Run `.claude/skills/quick-task-to-pr/scripts/bootstrap-outputs.sh <repo-root>`.
 2. Use these canonical artifact files for the run:
    - `.claude/skills/quick-task-to-pr/outputs/task-brief.md`
-   - `.claude/skills/quick-task-to-pr/outputs/e2e-definitions.md`
+   - `.claude/skills/quick-task-to-pr/outputs/flutter-test-definitions.md`
    - `.claude/skills/quick-task-to-pr/outputs/pr-summary.md`
    - `.claude/skills/quick-task-to-pr/outputs/review-notes.md`
 3. Overwrite stale artifact content from earlier runs so the files reflect the current task.
@@ -56,10 +56,10 @@ Use this internal workflow automatically. Do not burden the user with these deta
 - Write the result to `task-brief.md`.
 - If the task is too ambiguous to make binary ACs, stop and ask the user.
 
-### 2. E2E definitions
-- Spawn `e2e-definition-writer`.
-- Write the result to `e2e-definitions.md` when no runnable harness exists.
-- If the repo has a runnable E2E harness, allow real test/spec files instead.
+### 2. Flutter test definitions
+- Spawn `flutter-test-definition-writer`.
+- Write the result to `flutter-test-definitions.md` when no runnable Flutter test placement is clear.
+- If the repo has a runnable Flutter test harness, allow real Flutter test files instead.
 
 ### 3. AC coverage review
 - Spawn `ac-coverage-reviewer`.
@@ -76,12 +76,12 @@ Use this internal workflow automatically. Do not burden the user with these deta
 - Run `.claude/skills/quick-task-to-pr/scripts/run-gate.sh` when commands are detectable.
 - Stop before PR creation if validation fails.
 
-### 6. E2E execution
-- Run `.claude/skills/quick-task-to-pr/scripts/run-e2e.sh <repo> ac` and `all` only when E2E is actually configured.
-- Otherwise mark E2E as skipped and explain briefly.
+### 6. Flutter test execution
+- Run `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> ac` and `all` only when Flutter test execution is actually configured.
+- Otherwise mark Flutter test execution as skipped and explain briefly.
 
-### 7. E2E enhancement
-- Spawn `e2e-enhancer` only when it is useful.
+### 7. Flutter test enhancement
+- Spawn `flutter-test-enhancer` only when it is useful.
 - Up to 3 rounds.
 
 ### 8. PR creation
@@ -111,15 +111,15 @@ Use this internal workflow automatically. Do not burden the user with these deta
   - real feature task → run the fuller workflow
 - Do not force PR/merge for a task that is fully satisfied locally.
 - Do not hide blockers. If something stops the workflow, say exactly what and why.
-- If no runnable E2E harness exists, still produce useful E2E definitions and continue where reasonable.
+- If no runnable Flutter test harness exists, still produce useful Flutter test definitions and continue where reasonable.
 
 ## Agent map
 
 Use these exact agent names internally:
 - `task-brief-agent`
-- `e2e-definition-writer`
+- `flutter-test-definition-writer`
 - `ac-coverage-reviewer`
-- `e2e-enhancer`
+- `flutter-test-enhancer`
 - `code-review-fixer`
 
 ## What to tell the user at the end

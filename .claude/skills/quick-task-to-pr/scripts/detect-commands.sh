@@ -15,8 +15,8 @@ has_glob_match() {
 
 ANALYZE_CMD=""
 UNIT_TEST_CMD=""
-E2E_AC_CMD=""
-E2E_ALL_CMD=""
+FLUTTER_TEST_AC_CMD=""
+FLUTTER_TEST_ALL_CMD=""
 
 if has_file "pubspec.yaml"; then
   if command -v flutter >/dev/null 2>&1; then
@@ -30,12 +30,12 @@ fi
 
 if has_glob_match "integration_test/*.dart" || has_glob_match "test_driver/*"; then
   if command -v flutter >/dev/null 2>&1; then
-    E2E_AC_CMD="flutter test integration_test"
-    E2E_ALL_CMD="flutter test integration_test"
+    FLUTTER_TEST_AC_CMD="flutter test integration_test"
+    FLUTTER_TEST_ALL_CMD="flutter test integration_test"
   fi
 fi
 
 printf 'ANALYZE_CMD=%q\n' "$ANALYZE_CMD"
 printf 'UNIT_TEST_CMD=%q\n' "$UNIT_TEST_CMD"
-printf 'E2E_AC_CMD=%q\n' "$E2E_AC_CMD"
-printf 'E2E_ALL_CMD=%q\n' "$E2E_ALL_CMD"
+printf 'FLUTTER_TEST_AC_CMD=%q\n' "$FLUTTER_TEST_AC_CMD"
+printf 'FLUTTER_TEST_ALL_CMD=%q\n' "$FLUTTER_TEST_ALL_CMD"

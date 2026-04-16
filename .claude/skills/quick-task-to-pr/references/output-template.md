@@ -11,11 +11,11 @@
 - Key files
 - AI complexity estimate
 
-## `e2e-definitions.md`
+## `flutter-test-definitions.md`
 - One scenario per AC when practical
 - Happy path + important unhappy paths
 - Explicit expected outcome per scenario
-- Note whether the scenario is runnable now or definition-only
+- Note whether the scenario maps to `test/`, `integration_test/`, or remains definition-only
 
 ## `pr-summary.md`
 - What changed
