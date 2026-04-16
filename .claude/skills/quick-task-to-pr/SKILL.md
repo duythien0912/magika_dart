@@ -41,6 +41,7 @@ Create the outputs directory if it does not exist.
 - Reads: `$ARGUMENTS`, relevant repo files, optional `CLAUDE.md`
 - Writes: `outputs/task-brief.md`
 - Agent: `task-brief-agent`
+- Fallback: if the specialized agent is unavailable, write the task brief directly in the main conversation
 - Stop when: the task is too ambiguous to make binary ACs
 - Skip when: never
 
@@ -48,6 +49,7 @@ Create the outputs directory if it does not exist.
 - Reads: `outputs/task-brief.md`, existing Flutter test patterns if any
 - Writes: `outputs/flutter-test-definitions.md` or runnable Flutter test files if the repo already has a harness
 - Agent: `flutter-test-definition-writer`
+- Fallback: if the specialized agent is unavailable, write the Flutter test definitions directly in the main conversation
 - Stop when: Step 1 failed
 - Skip when: never
 
@@ -55,6 +57,7 @@ Create the outputs directory if it does not exist.
 - Reads: `outputs/task-brief.md`, `outputs/flutter-test-definitions.md` and/or generated Flutter test files
 - Writes: updates to `outputs/flutter-test-definitions.md` or missing Flutter test files
 - Agent: `ac-coverage-reviewer`
+- Fallback: if the specialized agent is unavailable, perform the AC coverage review directly in the main conversation
 - Loop: max 3 rounds
 - Stop when: Step 2 failed
 - Skip when: never
@@ -83,13 +86,15 @@ Create the outputs directory if it does not exist.
 - Writes: append status to `outputs/pr-summary.md`
 - Command: `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> ac`
 - Loop: max 5 attempts
+- Behavior: prefer dedicated `integration_test/` execution when present; otherwise fall back to the repo's runnable `flutter test` path
 - Stop when: runnable Flutter tests exist and keep failing after max attempts
-- Skip when: no Flutter test command is detected; report `Flutter test execution not configured`
+- Skip when: no Flutter test command is detected at all; report `Flutter test execution not configured`
 
 ### Step 7 — Flutter test enhancement loop
 - Reads: changed source files, Flutter test files/definitions
 - Writes: improved Flutter test files/definitions and notes in `outputs/review-notes.md`
 - Agent: `flutter-test-enhancer`
+- Fallback: if the specialized agent is unavailable, perform the coverage-enhancement pass directly in the main conversation
 - Loop: max 3 rounds
 - Stop when: Step 6 is blocked by persistent runnable Flutter test failures
 - Skip when: Flutter test execution is not configured and only definitions exist
@@ -99,8 +104,9 @@ Create the outputs directory if it does not exist.
 - Writes: append status to `outputs/pr-summary.md`
 - Command: `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> all`
 - Loop: max 3 attempts
+- Behavior: prefer dedicated `integration_test/` execution when present; otherwise fall back to the repo's runnable `flutter test` path
 - Stop when: runnable Flutter tests exist and keep failing after max attempts
-- Skip when: no Flutter test command is detected; report `Flutter test execution not configured`
+- Skip when: no Flutter test command is detected at all; report `Flutter test execution not configured`
 
 ### Step 9 — Create PR
 - Reads: repo git state, `outputs/pr-summary.md`
@@ -113,6 +119,7 @@ Create the outputs directory if it does not exist.
 - Reads: changed files and prior review notes
 - Writes: `outputs/review-notes.md`
 - Agent: `code-review-fixer`
+- Fallback: if the specialized agent is unavailable, perform one direct review/fix pass in the main conversation
 - Loop: max 10 rounds
 - Stop when: critical/high bugs keep appearing and do not converge
 - Skip when: no code changed

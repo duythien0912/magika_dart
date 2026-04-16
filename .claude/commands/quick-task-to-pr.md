@@ -53,16 +53,19 @@ Use this internal workflow automatically. Do not burden the user with these deta
 
 ### 1. Task brief
 - Spawn `task-brief-agent`.
+- If the agent is unavailable, write the brief directly.
 - Write the result to `task-brief.md`.
 - If the task is too ambiguous to make binary ACs, stop and ask the user.
 
 ### 2. Flutter test definitions
 - Spawn `flutter-test-definition-writer`.
+- If the agent is unavailable, write the Flutter test definitions directly.
 - Write the result to `flutter-test-definitions.md` when no runnable Flutter test placement is clear.
 - If the repo has a runnable Flutter test harness, allow real Flutter test files instead.
 
 ### 3. AC coverage review
 - Spawn `ac-coverage-reviewer`.
+- If the agent is unavailable, do the AC coverage pass directly.
 - Run up to 3 rounds.
 - Stop if acceptable coverage cannot be reached, unless the task is doc-only and the definitions are already sufficient.
 
@@ -77,11 +80,13 @@ Use this internal workflow automatically. Do not burden the user with these deta
 - Stop before PR creation if validation fails.
 
 ### 6. Flutter test execution
-- Run `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> ac` and `all` only when Flutter test execution is actually configured.
+- Run `.claude/skills/quick-task-to-pr/scripts/run-flutter-tests.sh <repo> ac` and `all` when Flutter tests are runnable.
+- Prefer dedicated `integration_test/` execution when present; otherwise fall back to the repo's main `flutter test` path.
 - Otherwise mark Flutter test execution as skipped and explain briefly.
 
 ### 7. Flutter test enhancement
 - Spawn `flutter-test-enhancer` only when it is useful.
+- If the agent is unavailable, do the enhancement pass directly.
 - Up to 3 rounds.
 
 ### 8. PR creation
@@ -93,6 +98,7 @@ Use this internal workflow automatically. Do not burden the user with these deta
 
 ### 9. Code review
 - Spawn `code-review-fixer` only when source changes were made.
+- If the agent is unavailable, do one direct review/fix pass.
 - Up to 10 rounds.
 
 ### 10. Merge

@@ -28,10 +28,13 @@ if has_file "pubspec.yaml"; then
   fi
 fi
 
-if has_glob_match "integration_test/*.dart" || has_glob_match "test_driver/*"; then
-  if command -v flutter >/dev/null 2>&1; then
+if command -v flutter >/dev/null 2>&1; then
+  if has_glob_match "integration_test/*.dart" || has_glob_match "test_driver/*"; then
     FLUTTER_TEST_AC_CMD="flutter test integration_test"
     FLUTTER_TEST_ALL_CMD="flutter test integration_test"
+  elif [[ -n "$UNIT_TEST_CMD" ]]; then
+    FLUTTER_TEST_AC_CMD="$UNIT_TEST_CMD"
+    FLUTTER_TEST_ALL_CMD="$UNIT_TEST_CMD"
   fi
 fi
 
