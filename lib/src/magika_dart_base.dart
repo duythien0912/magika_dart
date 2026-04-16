@@ -23,6 +23,7 @@ String _bundledOrPackageAssetKey(String assetKey, String package) {
   if (assetKey.startsWith('packages/')) {
     return assetKey;
   }
+  // Flutter asset lookups need the package prefix when assets live in a dependency.
   return _packageAssetKey(assetKey, package);
 }
 
@@ -31,10 +32,12 @@ Future<String> _loadBundledStringAsset(String assetKey, String package) async {
   try {
     return await rootBundle.loadString(packageAssetKey);
   } catch (_) {
+    // Fall back to the raw key so the same config works for direct and packaged assets.
     return rootBundle.loadString(assetKey);
   }
 }
 
+/// Thrown when the Magika backend configuration is incomplete or unsupported.
 class MagikaConfigurationException implements Exception {
   const MagikaConfigurationException(this.message);
 
@@ -77,7 +80,8 @@ class _MagikaModelConfig {
       midSize: json['mid_size'] as int,
       endSize: json['end_size'] as int,
       useInputsAtOffsets: json['use_inputs_at_offsets'] as bool,
-      mediumConfidenceThreshold: (json['medium_confidence_threshold'] as num).toDouble(),
+      mediumConfidenceThreshold: (json['medium_confidence_threshold'] as num)
+          .toDouble(),
       minFileSizeForDl: json['min_file_size_for_dl'] as int,
       paddingToken: json['padding_token'] as int,
       blockSize: json['block_size'] as int,
@@ -106,12 +110,12 @@ class _MagikaModelConfig {
   final Map<String, String> overwriteMap;
 }
 
+/// Production backend that runs the bundled Magika ONNX model through ONNX Runtime.
 class RealMagikaBackend implements MagikaBackend {
-  RealMagikaBackend({
-    required this.backendConfig,
-    OnnxRuntime? runtime,
-  }) : _runtime = runtime ?? OnnxRuntime();
+  RealMagikaBackend({required this.backendConfig, OnnxRuntime? runtime})
+    : _runtime = runtime ?? OnnxRuntime();
 
+  /// Configuration controlling model loading, thresholds, and metadata lookup.
   final MagikaBackendConfig backendConfig;
   final OnnxRuntime _runtime;
 
@@ -120,8 +124,11 @@ class RealMagikaBackend implements MagikaBackend {
   Map<String, ContentTypeInfo>? _contentTypes;
   PredictionMode _predictionMode = PredictionMode.highConfidence;
 
+  /// Loads model assets, content-type metadata, and the ONNX session.
   @override
-  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
+  Future<void> initialize({
+    PredictionMode predictionMode = PredictionMode.highConfidence,
+  }) async {
     _predictionMode = predictionMode;
     final modelConfigJson = await _loadModelConfigJson();
     final modelConfig = _MagikaModelConfig.fromJson(modelConfigJson);
@@ -156,7 +163,8 @@ class RealMagikaBackend implements MagikaBackend {
             'Model config file not found at $configPath.',
           );
         }
-        return jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+        return jsonDecode(await configFile.readAsString())
+            as Map<String, dynamic>;
       case ModelAssetSource.remote:
         throw const MagikaConfigurationException(
           'ModelAssetSource.remote is not implemented yet.',
@@ -195,7 +203,10 @@ class RealMagikaBackend implements MagikaBackend {
     switch (modelAsset.source) {
       case ModelAssetSource.bundled:
         return _runtime.createSessionFromAsset(
-          _bundledOrPackageAssetKey(modelAsset.bundledAssetKey, modelAsset.bundledPackage),
+          _bundledOrPackageAssetKey(
+            modelAsset.bundledAssetKey,
+            modelAsset.bundledPackage,
+          ),
         );
       case ModelAssetSource.filesystem:
         final modelPath = modelAsset.modelPath;
@@ -219,6 +230,7 @@ class RealMagikaBackend implements MagikaBackend {
   }
 
   void _validateModelConfig(_MagikaModelConfig config) {
+    // The current Dart runtime only supports the contiguous begin/end feature layout.
     if (config.useInputsAtOffsets) {
       throw const MagikaConfigurationException(
         'Model config with use_inputs_at_offsets=true is not supported.',
@@ -231,6 +243,7 @@ class RealMagikaBackend implements MagikaBackend {
     }
   }
 
+  /// Identifies the content type for an in-memory byte sequence.
   @override
   Future<MagikaResult> identifyBytes(List<int> bytes) async {
     if (_session == null || _modelConfig == null || _contentTypes == null) {
@@ -260,7 +273,10 @@ class RealMagikaBackend implements MagikaBackend {
       ...sample.middle,
       ...sample.end,
     ];
-    final inputTensor = await OrtValue.fromList(<List<int>>[inputBytes], [1, inputBytes.length]);
+    final inputTensor = await OrtValue.fromList(
+      <List<int>>[inputBytes],
+      [1, inputBytes.length],
+    );
     try {
       final outputs = await _session!.run({'bytes': inputTensor});
       final outputTensor = outputs.values.first;
@@ -277,7 +293,11 @@ class RealMagikaBackend implements MagikaBackend {
       );
 
       await outputTensor.dispose();
-      return MagikaResult(path: '-', status: MagikaStatus.ok, prediction: prediction);
+      return MagikaResult(
+        path: '-',
+        status: MagikaStatus.ok,
+        prediction: prediction,
+      );
     } catch (_) {
       return const MagikaResult(
         path: '-',
@@ -289,11 +309,16 @@ class RealMagikaBackend implements MagikaBackend {
     }
   }
 
+  /// Reads the file at [path] and classifies its bytes.
   @override
   Future<MagikaResult> identifyPath(String path) async {
     final bytes = await File(path).readAsBytes();
     final result = await identifyBytes(bytes);
-    return MagikaResult(path: path, status: result.status, prediction: result.prediction);
+    return MagikaResult(
+      path: path,
+      status: result.status,
+      prediction: result.prediction,
+    );
   }
 
   Map<String, ContentTypeInfo> _loadContentTypes(Map<String, dynamic> json) {
@@ -305,21 +330,45 @@ class RealMagikaBackend implements MagikaBackend {
     );
   }
 
-  _SampleFeatures _extractFeatures(Uint8List content, _MagikaModelConfig config) {
-    final bytesToRead = content.length < config.blockSize ? content.length : config.blockSize;
-    final beginning = _normalizeBeginning(content.sublist(0, bytesToRead), config.beginSize, config.paddingToken);
+  _SampleFeatures _extractFeatures(
+    Uint8List content,
+    _MagikaModelConfig config,
+  ) {
+    final bytesToRead = content.length < config.blockSize
+        ? content.length
+        : config.blockSize;
+    // The model consumes normalized slices from the beginning and end of the file.
+    final beginning = _normalizeBeginning(
+      content.sublist(0, bytesToRead),
+      config.beginSize,
+      config.paddingToken,
+    );
     final endStart = content.length - bytesToRead;
-    final end = _normalizeEnd(content.sublist(endStart, content.length), config.endSize, config.paddingToken);
-    return _SampleFeatures(beginning: beginning, middle: const <int>[], end: end);
+    final end = _normalizeEnd(
+      content.sublist(endStart, content.length),
+      config.endSize,
+      config.paddingToken,
+    );
+    return _SampleFeatures(
+      beginning: beginning,
+      middle: const <int>[],
+      end: end,
+    );
   }
 
   List<int> _normalizeBeginning(List<int> bytes, int size, int paddingToken) {
-    final trimmed = bytes.skipWhile(_whitespaceBytes.contains).toList(growable: false);
+    // Leading whitespace is ignored so text-like files are compared on meaningful bytes.
+    final trimmed = bytes
+        .skipWhile(_whitespaceBytes.contains)
+        .toList(growable: false);
     final slice = trimmed.length > size ? trimmed.sublist(0, size) : trimmed;
     if (slice.length == size) {
       return slice;
     }
-    return <int>[...slice, ...List<int>.filled(size - slice.length, paddingToken)];
+    return <int>[
+      ...slice,
+      ...List<int>.filled(size - slice.length, paddingToken),
+    ];
   }
 
   List<int> _normalizeEnd(List<int> bytes, int size, int paddingToken) {
@@ -328,11 +377,16 @@ class RealMagikaBackend implements MagikaBackend {
       endIndex -= 1;
     }
     final trimmed = bytes.sublist(0, endIndex);
-    final slice = trimmed.length > size ? trimmed.sublist(trimmed.length - size) : trimmed;
+    final slice = trimmed.length > size
+        ? trimmed.sublist(trimmed.length - size)
+        : trimmed;
     if (slice.length == size) {
       return slice;
     }
-    return <int>[...List<int>.filled(size - slice.length, paddingToken), ...slice];
+    return <int>[
+      ...List<int>.filled(size - slice.length, paddingToken),
+      ...slice,
+    ];
   }
 
   MagikaPrediction _buildPrediction(
@@ -351,21 +405,30 @@ class RealMagikaBackend implements MagikaBackend {
     final modelLabel = config.targetLabelsSpace[maxIndex];
     final modelInfo = MagikaContentTypes.fromLabel(modelLabel, contentTypes);
     final overwrittenLabel = config.overwriteMap[modelLabel] ?? modelLabel;
-    var overwriteReason = overwrittenLabel == modelLabel ? OverwriteReason.none : OverwriteReason.overwriteMap;
+    var overwriteReason = overwrittenLabel == modelLabel
+        ? OverwriteReason.none
+        : OverwriteReason.overwriteMap;
     final score = scores[maxIndex];
 
-    final threshold = config.thresholds[modelLabel] ?? runtimeThresholds.highConfidence;
+    final threshold =
+        config.thresholds[modelLabel] ?? runtimeThresholds.highConfidence;
     final keepModelPrediction = switch (predictionMode) {
       PredictionMode.bestGuess => true,
-      PredictionMode.mediumConfidence => score >= runtimeThresholds.mediumConfidence,
+      PredictionMode.mediumConfidence =>
+        score >= runtimeThresholds.mediumConfidence,
       PredictionMode.highConfidence => score >= threshold,
     };
 
+    // Low-confidence predictions fall back to generic text/binary labels after overwrite rules run.
     final outputLabel = keepModelPrediction
         ? overwrittenLabel
-        : (MagikaContentTypes.fromLabel(overwrittenLabel, contentTypes).isText ? 'txt' : 'unknown');
+        : (MagikaContentTypes.fromLabel(overwrittenLabel, contentTypes).isText
+              ? 'txt'
+              : 'unknown');
     if (!keepModelPrediction) {
-      overwriteReason = outputLabel == overwrittenLabel ? OverwriteReason.none : OverwriteReason.lowConfidence;
+      overwriteReason = outputLabel == overwrittenLabel
+          ? OverwriteReason.none
+          : OverwriteReason.lowConfidence;
     }
     final outputInfo = MagikaContentTypes.fromLabel(outputLabel, contentTypes);
     final directInfo = outputLabel == modelLabel ? null : outputInfo;
@@ -381,14 +444,19 @@ class RealMagikaBackend implements MagikaBackend {
   }
 }
 
+/// Lightweight backend used when only generic text/binary fallback behavior is needed.
 class StubMagikaBackend implements MagikaBackend {
   bool _initialized = false;
 
+  /// Marks the stub backend as ready to serve requests.
   @override
-  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence}) async {
+  Future<void> initialize({
+    PredictionMode predictionMode = PredictionMode.highConfidence,
+  }) async {
     _initialized = true;
   }
 
+  /// Returns a generic text or binary prediction for the provided bytes.
   @override
   Future<MagikaResult> identifyBytes(List<int> bytes) async {
     if (!_initialized) {
@@ -406,6 +474,7 @@ class StubMagikaBackend implements MagikaBackend {
     );
   }
 
+  /// Reads the file path into the result while reusing stub byte classification.
   @override
   Future<MagikaResult> identifyPath(String path) async {
     final result = await identifyBytes(const <int>[]);
@@ -421,7 +490,10 @@ class StubMagikaBackend implements MagikaBackend {
       return MagikaPredictions.unsupported;
     }
 
-    final isText = bytes.every((byte) => byte == 9 || byte == 10 || byte == 13 || (byte >= 32 && byte <= 126));
+    final isText = bytes.every(
+      (byte) =>
+          byte == 9 || byte == 10 || byte == 13 || (byte >= 32 && byte <= 126),
+    );
     if (isText) {
       return MagikaPredictions.genericTextFallback;
     }
@@ -430,16 +502,13 @@ class StubMagikaBackend implements MagikaBackend {
   }
 }
 
-enum ProductionBackendStrategy {
-  nativeFfiBridge,
-}
+/// Selects the implementation used for production classification.
+enum ProductionBackendStrategy { nativeFfiBridge }
 
-enum ModelAssetSource {
-  bundled,
-  filesystem,
-  remote,
-}
+/// Controls where the ONNX model is loaded from.
+enum ModelAssetSource { bundled, filesystem, remote }
 
+/// Configuration for locating the ONNX model asset consumed by the FFI backend.
 class FfiModelAssetConfig {
   const FfiModelAssetConfig({
     this.source = ModelAssetSource.bundled,
@@ -452,23 +521,37 @@ class FfiModelAssetConfig {
   static const String defaultBundledModelAssetKey = 'assets/magika/model.onnx';
   static const String defaultBundledAssetPackage = 'magika_dart';
 
+  /// Source used to resolve the ONNX model.
   final ModelAssetSource source;
+
+  /// Filesystem path to the ONNX model when [source] is [ModelAssetSource.filesystem].
   final String? modelPath;
+
+  /// Optional external version identifier for the model asset.
   final String? modelVersion;
+
+  /// Asset key for bundled model loading.
   final String bundledAssetKey;
+
+  /// Package that owns the bundled model asset.
   final String bundledPackage;
 }
 
+/// Runtime confidence thresholds used when evaluating predictions.
 class MagikaThresholdConfig {
   const MagikaThresholdConfig({
     this.highConfidence = 0.9,
     this.mediumConfidence = 0.5,
   });
 
+  /// Default threshold for [PredictionMode.highConfidence].
   final double highConfidence;
+
+  /// Default threshold for [PredictionMode.mediumConfidence].
   final double mediumConfidence;
 }
 
+/// Configuration for loading Magika label metadata.
 class LabelMetadataConfig {
   const LabelMetadataConfig({
     this.metadataPath,
@@ -477,14 +560,23 @@ class LabelMetadataConfig {
     this.bundledPackage = FfiModelAssetConfig.defaultBundledAssetPackage,
   });
 
-  static const String defaultBundledMetadataAssetKey = 'assets/magika/content_types_kb.min.json';
+  static const String defaultBundledMetadataAssetKey =
+      'assets/magika/content_types_kb.min.json';
 
+  /// Filesystem path to metadata JSON when external metadata is used.
   final String? metadataPath;
+
+  /// Optional external version identifier for the metadata asset.
   final String? metadataVersion;
+
+  /// Asset key for bundled metadata loading.
   final String bundledAssetKey;
+
+  /// Package that owns the bundled metadata asset.
   final String bundledPackage;
 }
 
+/// Configuration for the native FFI backend and its model assets.
 class NativeFfiBridgeConfig {
   const NativeFfiBridgeConfig({
     this.libraryPath,
@@ -494,27 +586,46 @@ class NativeFfiBridgeConfig {
     this.labelMetadata = const LabelMetadataConfig(),
   });
 
+  /// Optional absolute path to the native runtime library.
   final String? libraryPath;
+
+  /// Optional library name when dynamic lookup is used.
   final String? libraryName;
+
+  /// Model asset configuration.
   final FfiModelAssetConfig modelAsset;
+
+  /// Runtime thresholds that influence fallback behavior.
   final MagikaThresholdConfig thresholds;
+
+  /// Label metadata configuration.
   final LabelMetadataConfig labelMetadata;
 }
 
+/// Top-level backend configuration passed into [Magika] and [RealMagikaBackend].
 class MagikaBackendConfig {
   const MagikaBackendConfig({
     this.productionStrategy = ProductionBackendStrategy.nativeFfiBridge,
     this.nativeFfiBridge = const NativeFfiBridgeConfig(),
   });
 
+  /// Production backend implementation to use.
   final ProductionBackendStrategy productionStrategy;
+
+  /// Configuration for the native FFI bridge implementation.
   final NativeFfiBridgeConfig nativeFfiBridge;
 }
 
+/// Common interface for Magika backends.
 abstract interface class MagikaBackend {
-  Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence});
+  /// Prepares the backend to classify content.
+  Future<void> initialize({
+    PredictionMode predictionMode = PredictionMode.highConfidence,
+  });
 
+  /// Identifies the content type for raw bytes.
   Future<MagikaResult> identifyBytes(List<int> bytes);
 
+  /// Reads and identifies the file at [path].
   Future<MagikaResult> identifyPath(String path);
 }
