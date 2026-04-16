@@ -1,3 +1,6 @@
+## 0.1.2
+- Update desc
+
 ## 0.1.1
 - Ship `identifyString` , `identifyFile`
 - Update desc
