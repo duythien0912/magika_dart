@@ -1,39 +1,70 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# magika_dart
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages). 
+`magika_dart` is an early-stage Dart package for Magika-inspired content-type identification.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages). 
--->
+The current repository provides the public package surface and a stub backend so applications can start integrating against the API shape before a production classifier backend is wired in.
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+## Current status
+
+This package is still a scaffold:
+- the public `Magika` API is available
+- prediction mode configuration is exposed during initialization
+- identification calls currently resolve through a stub backend
+- results currently report unsupported/unknown content rather than real model-backed predictions
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- Simple async package entrypoint via `Magika.create()`
+- Byte-based identification with `identifyBytes`
+- Path-based identification with `identifyPath`
+- Structured result objects with status and content-type metadata
+- Prediction mode enum ready for future backend integration
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Add the package to your Dart project, then import the library entrypoint:
+
+```dart
+import 'package:magika_dart/magika_dart.dart';
+```
+
+This package currently targets Dart SDK `^3.11.3`.
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
-
 ```dart
-const like = 'sample';
+import 'package:magika_dart/magika_dart.dart';
+
+Future<void> main() async {
+  final magika = await Magika.create(
+    predictionMode: PredictionMode.highConfidence,
+  );
+
+  final bytesResult = await magika.identifyBytes('Hello, world!'.codeUnits);
+  print(bytesResult.status);
+  print(bytesResult.prediction.output.label);
+
+  final pathResult = await magika.identifyPath('example.txt');
+  print(pathResult.path);
+}
 ```
+
+## API overview
+
+`magika_dart` currently exports:
+- `Magika` for client creation and identification calls
+- `MagikaResult` and `MagikaPrediction` for result inspection
+- `ContentTypeInfo` for content-type metadata
+- `PredictionMode`, `OverwriteReason`, and `MagikaStatus` enums
+
+## Notes for adopters
+
+At the moment, this package is best treated as an integration scaffold rather than a finished file-type detection library. If you build against it today, expect the API surface to be more stable than the backend behavior.
+
+## Development
+
+The repository is a plain Dart package with `test` and `lints` configured in `pubspec.yaml`. If you extend the implementation, keep the README aligned with the currently shipped API and behavior.
 
 ## Additional information
 
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+No repository URL or issue tracker is configured in this repo yet, so project metadata and contribution links will need to be added later alongside the real backend implementation.
