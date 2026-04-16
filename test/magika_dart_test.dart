@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magika_dart/magika_dart.dart';
 
@@ -40,9 +42,12 @@ class FakeMagikaBackend implements MagikaBackend {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('Magika.create exposes configured prediction mode and default FFI strategy', () async {
     final magika = await Magika.create(
       predictionMode: PredictionMode.mediumConfidence,
+      backend: StubMagikaBackend(),
     );
 
     expect(magika, isA<Magika>());
@@ -56,14 +61,30 @@ void main() {
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.bundled);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, isNull);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, isNull);
+    expect(
+      magika.backendConfig.nativeFfiBridge.modelAsset.bundledAssetKey,
+      FfiModelAssetConfig.defaultBundledModelAssetKey,
+    );
+    expect(
+      magika.backendConfig.nativeFfiBridge.modelAsset.bundledPackage,
+      FfiModelAssetConfig.defaultBundledAssetPackage,
+    );
     expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.9);
     expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.5);
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, isNull);
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, isNull);
+    expect(
+      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledAssetKey,
+      LabelMetadataConfig.defaultBundledMetadataAssetKey,
+    );
+    expect(
+      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledPackage,
+      FfiModelAssetConfig.defaultBundledAssetPackage,
+    );
   });
 
   test('stub backend returns generic text fallback for text bytes', () async {
-    final magika = await Magika.create();
+    final magika = await Magika.create(backend: StubMagikaBackend());
     final result = await magika.identifyBytes('hello world'.codeUnits);
 
     expect(result.status, MagikaStatus.unsupported);
@@ -76,7 +97,7 @@ void main() {
   });
 
   test('stub backend returns generic binary fallback for binary bytes', () async {
-    final magika = await Magika.create();
+    final magika = await Magika.create(backend: StubMagikaBackend());
     final result = await magika.identifyBytes(<int>[0, 159, 146, 150]);
 
     expect(result.status, MagikaStatus.unsupported);
@@ -95,10 +116,18 @@ void main() {
   });
 
   test('identifyPath preserves the requested path', () async {
-    final magika = await Magika.create();
-    final result = await magika.identifyPath('sample.txt');
+    final file = File('test_identify_path_fixture.txt');
+    await file.writeAsString('fixture');
+    addTearDown(() async {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    });
 
-    expect(result.path, 'sample.txt');
+    final magika = await Magika.create(backend: StubMagikaBackend());
+    final result = await magika.identifyPath(file.path);
+
+    expect(result.path, file.path);
   });
 
   test('Magika.create initializes an injected backend and preserves explicit FFI config', () async {
@@ -109,9 +138,11 @@ void main() {
         libraryPath: '/tmp/libmagika.dylib',
         libraryName: 'magika',
         modelAsset: FfiModelAssetConfig(
-          source: ModelAssetSource.filesystem,
+          source: ModelAssetSource.bundled,
           modelPath: '/tmp/magika/model.onnx',
           modelVersion: 'v1',
+          bundledAssetKey: 'assets/custom/model-v1.onnx',
+          bundledPackage: 'custom_pkg',
         ),
         thresholds: MagikaThresholdConfig(
           highConfidence: 0.95,
@@ -120,6 +151,8 @@ void main() {
         labelMetadata: LabelMetadataConfig(
           metadataPath: '/tmp/magika/labels.json',
           metadataVersion: '2026-04',
+          bundledAssetKey: 'assets/custom/content-types-v1.min.json',
+          bundledPackage: 'custom_pkg',
         ),
       ),
     );
@@ -134,13 +167,23 @@ void main() {
     expect(magika.backendConfig, same(backendConfig));
     expect(magika.backendConfig.nativeFfiBridge.libraryPath, '/tmp/libmagika.dylib');
     expect(magika.backendConfig.nativeFfiBridge.libraryName, 'magika');
-    expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.filesystem);
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.bundled);
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, '/tmp/magika/model.onnx');
     expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, 'v1');
+    expect(
+      magika.backendConfig.nativeFfiBridge.modelAsset.bundledAssetKey,
+      'assets/custom/model-v1.onnx',
+    );
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.bundledPackage, 'custom_pkg');
     expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.95);
     expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.6);
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, '/tmp/magika/labels.json');
     expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, '2026-04');
+    expect(
+      magika.backendConfig.nativeFfiBridge.labelMetadata.bundledAssetKey,
+      'assets/custom/content-types-v1.min.json',
+    );
+    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.bundledPackage, 'custom_pkg');
     expect(backend.initializedWith, PredictionMode.bestGuess);
   });
 

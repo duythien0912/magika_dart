@@ -22,7 +22,7 @@ class Magika {
     MagikaBackend? backend,
     MagikaBackendConfig backendConfig = const MagikaBackendConfig(),
   }) async {
-    final resolvedBackend = backend ?? StubMagikaBackend();
+    final resolvedBackend = backend ?? RealMagikaBackend(backendConfig: backendConfig);
     await resolvedBackend.initialize(predictionMode: predictionMode);
     return Magika._(resolvedBackend, predictionMode, backendConfig);
   }

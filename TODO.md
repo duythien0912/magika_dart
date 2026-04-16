@@ -17,7 +17,7 @@
 - [x] Replace the current stub backend with an explicit backend interface.
 - [x] Decide the first production backend strategy: native/FFI bridge.
 - [x] Define where model files, thresholds, and label metadata live and how they are loaded.
-- [ ] Decide whether the package should support offline bundled assets, externally downloaded models, or both.
+- [x] package should support offline bundled assets.
 
 ## Phase 4 — Classifier parity spike
 - [ ] Reproduce upstream feature extraction behavior for a small sample.

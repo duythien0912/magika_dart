@@ -62,6 +62,16 @@ class MagikaContentTypes {
     group: 'unknown',
     isText: false,
   );
+
+  static ContentTypeInfo fromLabel(
+    String label,
+    Map<String, ContentTypeInfo> contentTypes,
+  ) {
+    if (label == genericBinary.label) {
+      return genericBinary;
+    }
+    return contentTypes[label] ?? unknown;
+  }
 }
 
 class MagikaPredictions {

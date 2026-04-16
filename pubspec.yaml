@@ -12,9 +12,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_onnxruntime: ^1.7.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
@@ -23,6 +26,16 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - assets/magika/model.onnx
+    - assets/magika/content_types_kb.min.json
+    - assets/magika/metadata.json
+    - assets/magika/config.min.json
+    - integration_test/fixtures/hello.txt
+    - integration_test/fixtures/sample.json
+    - integration_test/fixtures/tiny.png
+    - integration_test/fixtures/tiny.pdf
+    - integration_test/fixtures/tiny.zip
 
   # To add assets to your package, add an assets section, like this:
   # assets:
