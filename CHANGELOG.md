@@ -1,3 +1,7 @@
+## 0.1.1
+- Ship `identifyString` , `identifyFile`
+- Update desc
+
 ## 0.1.0
 
 - Ship the real bundled Magika model, config, and metadata assets.
