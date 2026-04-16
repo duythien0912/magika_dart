@@ -31,11 +31,6 @@ flutter:
     - assets/magika/content_types_kb.min.json
     - assets/magika/metadata.json
     - assets/magika/config.min.json
-    - integration_test/fixtures/hello.txt
-    - integration_test/fixtures/sample.json
-    - integration_test/fixtures/tiny.png
-    - integration_test/fixtures/tiny.pdf
-    - integration_test/fixtures/tiny.zip
 
   # To add assets to your package, add an assets section, like this:
   # assets:
