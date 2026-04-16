@@ -1,3 +1,6 @@
+## 0.1.5
+- Update docs comment
+
 ## 0.1.4
 - Add docs comment
 
