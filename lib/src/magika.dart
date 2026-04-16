@@ -3,25 +3,28 @@ import 'prediction_mode.dart';
 import 'magika_dart_base.dart';
 
 class Magika {
-  Magika._(this._backend, this.predictionMode);
+  Magika._(this._backend, this.predictionMode, this.backendConfig);
 
   factory Magika({
     required MagikaBackend backend,
     PredictionMode predictionMode = PredictionMode.highConfidence,
+    MagikaBackendConfig backendConfig = const MagikaBackendConfig(),
   }) {
-    return Magika._(backend, predictionMode);
+    return Magika._(backend, predictionMode, backendConfig);
   }
 
   final MagikaBackend _backend;
   final PredictionMode predictionMode;
+  final MagikaBackendConfig backendConfig;
 
   static Future<Magika> create({
     PredictionMode predictionMode = PredictionMode.highConfidence,
     MagikaBackend? backend,
+    MagikaBackendConfig backendConfig = const MagikaBackendConfig(),
   }) async {
     final resolvedBackend = backend ?? StubMagikaBackend();
     await resolvedBackend.initialize(predictionMode: predictionMode);
-    return Magika._(resolvedBackend, predictionMode);
+    return Magika._(resolvedBackend, predictionMode, backendConfig);
   }
 
   Future<MagikaResult> identifyBytes(List<int> bytes) {

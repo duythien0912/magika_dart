@@ -40,13 +40,26 @@ class FakeMagikaBackend implements MagikaBackend {
 }
 
 void main() {
-  test('Magika.create exposes configured prediction mode', () async {
+  test('Magika.create exposes configured prediction mode and default FFI strategy', () async {
     final magika = await Magika.create(
       predictionMode: PredictionMode.mediumConfidence,
     );
 
     expect(magika, isA<Magika>());
     expect(magika.predictionMode, PredictionMode.mediumConfidence);
+    expect(
+      magika.backendConfig.productionStrategy,
+      ProductionBackendStrategy.nativeFfiBridge,
+    );
+    expect(magika.backendConfig.nativeFfiBridge.libraryPath, isNull);
+    expect(magika.backendConfig.nativeFfiBridge.libraryName, isNull);
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.bundled);
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, isNull);
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, isNull);
+    expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.9);
+    expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.5);
+    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, isNull);
+    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, isNull);
   });
 
   test('stub backend returns generic text fallback for text bytes', () async {
@@ -88,21 +101,57 @@ void main() {
     expect(result.path, 'sample.txt');
   });
 
-  test('Magika.create initializes an injected backend', () async {
+  test('Magika.create initializes an injected backend and preserves explicit FFI config', () async {
     final backend = FakeMagikaBackend();
+    const backendConfig = MagikaBackendConfig(
+      productionStrategy: ProductionBackendStrategy.nativeFfiBridge,
+      nativeFfiBridge: NativeFfiBridgeConfig(
+        libraryPath: '/tmp/libmagika.dylib',
+        libraryName: 'magika',
+        modelAsset: FfiModelAssetConfig(
+          source: ModelAssetSource.filesystem,
+          modelPath: '/tmp/magika/model.onnx',
+          modelVersion: 'v1',
+        ),
+        thresholds: MagikaThresholdConfig(
+          highConfidence: 0.95,
+          mediumConfidence: 0.6,
+        ),
+        labelMetadata: LabelMetadataConfig(
+          metadataPath: '/tmp/magika/labels.json',
+          metadataVersion: '2026-04',
+        ),
+      ),
+    );
 
     final magika = await Magika.create(
       predictionMode: PredictionMode.bestGuess,
       backend: backend,
+      backendConfig: backendConfig,
     );
 
     expect(magika.predictionMode, PredictionMode.bestGuess);
+    expect(magika.backendConfig, same(backendConfig));
+    expect(magika.backendConfig.nativeFfiBridge.libraryPath, '/tmp/libmagika.dylib');
+    expect(magika.backendConfig.nativeFfiBridge.libraryName, 'magika');
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.source, ModelAssetSource.filesystem);
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelPath, '/tmp/magika/model.onnx');
+    expect(magika.backendConfig.nativeFfiBridge.modelAsset.modelVersion, 'v1');
+    expect(magika.backendConfig.nativeFfiBridge.thresholds.highConfidence, 0.95);
+    expect(magika.backendConfig.nativeFfiBridge.thresholds.mediumConfidence, 0.6);
+    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataPath, '/tmp/magika/labels.json');
+    expect(magika.backendConfig.nativeFfiBridge.labelMetadata.metadataVersion, '2026-04');
     expect(backend.initializedWith, PredictionMode.bestGuess);
   });
 
   test('Magika delegates identify methods through the backend interface', () async {
     final backend = FakeMagikaBackend();
-    final magika = Magika(backend: backend);
+    final magika = Magika(
+      backend: backend,
+      backendConfig: const MagikaBackendConfig(
+        nativeFfiBridge: NativeFfiBridgeConfig(libraryName: 'magika'),
+      ),
+    );
 
     final bytesResult = await magika.identifyBytes(<int>[1, 2, 3]);
     final pathResult = await magika.identifyPath('fixture.bin');

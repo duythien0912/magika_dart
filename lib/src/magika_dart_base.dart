@@ -2,6 +2,74 @@ import 'magika_result.dart';
 import 'prediction_mode.dart';
 import 'status.dart';
 
+enum ProductionBackendStrategy {
+  nativeFfiBridge,
+}
+
+enum ModelAssetSource {
+  bundled,
+  filesystem,
+  remote,
+}
+
+class FfiModelAssetConfig {
+  const FfiModelAssetConfig({
+    this.source = ModelAssetSource.bundled,
+    this.modelPath,
+    this.modelVersion,
+  });
+
+  final ModelAssetSource source;
+  final String? modelPath;
+  final String? modelVersion;
+}
+
+class MagikaThresholdConfig {
+  const MagikaThresholdConfig({
+    this.highConfidence = 0.9,
+    this.mediumConfidence = 0.5,
+  });
+
+  final double highConfidence;
+  final double mediumConfidence;
+}
+
+class LabelMetadataConfig {
+  const LabelMetadataConfig({
+    this.metadataPath,
+    this.metadataVersion,
+  });
+
+  final String? metadataPath;
+  final String? metadataVersion;
+}
+
+class NativeFfiBridgeConfig {
+  const NativeFfiBridgeConfig({
+    this.libraryPath,
+    this.libraryName,
+    this.modelAsset = const FfiModelAssetConfig(),
+    this.thresholds = const MagikaThresholdConfig(),
+    this.labelMetadata = const LabelMetadataConfig(),
+  });
+
+  final String? libraryPath;
+  final String? libraryName;
+  final FfiModelAssetConfig modelAsset;
+  final MagikaThresholdConfig thresholds;
+  final LabelMetadataConfig labelMetadata;
+}
+
+class MagikaBackendConfig {
+  const MagikaBackendConfig({
+    this.productionStrategy = ProductionBackendStrategy.nativeFfiBridge,
+    this.nativeFfiBridge = const NativeFfiBridgeConfig(),
+  });
+
+  final ProductionBackendStrategy productionStrategy;
+  final NativeFfiBridgeConfig nativeFfiBridge;
+}
+
 abstract interface class MagikaBackend {
   Future<void> initialize({PredictionMode predictionMode = PredictionMode.highConfidence});
 

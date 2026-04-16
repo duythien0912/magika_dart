@@ -15,8 +15,8 @@
 ## Phase 3 — Backend architecture
 - [ ] Read https://securityresearch.google/magika/introduction/overview
 - [x] Replace the current stub backend with an explicit backend interface.
-- [ ] Decide the first production backend strategy: pure Dart experiment, native/FFI bridge, or model-runtime integration.
-- [ ] Define where model files, thresholds, and label metadata live and how they are loaded.
+- [x] Decide the first production backend strategy: native/FFI bridge.
+- [x] Define where model files, thresholds, and label metadata live and how they are loaded.
 - [ ] Decide whether the package should support offline bundled assets, externally downloaded models, or both.
 
 ## Phase 4 — Classifier parity spike
